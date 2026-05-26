@@ -1,6 +1,6 @@
 # SVG-Enhanced Assembly Tree Generation Tasks
 
-Last updated: 2026-05-26 (GRPO + spatial SVG reward experiments complete)
+Last updated: 2026-05-26 (label-ratio / weak-supervision experiment framework added)
 
 ## Task Definition
 
@@ -154,6 +154,24 @@ GT trees score 0.17-0.33, random trees score 0.0.
 From-scratch GRPO + spatial: Test Hard 0.281 (+9% over 0.258 without spatial).
 Warm-start GRPO + spatial: Test Hard 0.254 (worse than BCE 0.332).
 
+### 7. Label-ratio pilot suggests SVG/RL reward is most useful under scarce labels
+
+Pilot setting: `svg_geometry_composite`, seed 0, same held-out test split.
+
+| Method | Label ratio | Test Simple | Test Hard | All Hard |
+|---|---:|---:|---:|---:|
+| BCE context MLP | 10% | 0.466 | 0.182 | 0.270 |
+| BCE context MLP | 25% | 0.535 | 0.261 | 0.386 |
+| BCE context MLP | 50% | 0.495 | 0.199 | 0.442 |
+| BCE context MLP | 100% | 0.570 | 0.332 | 0.673 |
+| Warm-start GRPO | 10% GT reward | 0.487 | 0.237 | 0.333 |
+| Warm-start GRPO | 100% GT reward | 0.516 | 0.210 | 0.546 |
+
+Interpretation:
+- 10% labels: GRPO + SVG/spatial reward improves Test Hard F1 by +0.055 over the 10% BCE model.
+- 100% labels: GRPO hurts Test Hard F1, so full-supervision BCE remains the strongest baseline.
+- This supports framing SVG-aware GRPO as a weak/low-label supervision method, not as a replacement for supervised tree labels.
+
 ---
 
 ## Completed
@@ -188,11 +206,34 @@ Warm-start GRPO + spatial: Test Hard 0.254 (worse than BCE 0.332).
   3. Entropy regularization (lambda=0.1): minimal diversity gain
   4. From-scratch (random init): best exploration, overfits to train
 - [x] Use per-step simplified SVG geometry as spatial reward signal in GRPO
+- [x] Add label-ratio controls for low-supervision BCE tree-planner experiments
+  - `train_tree_planner_context.py --label-ratio {0.1,0.25,0.5,1.0}`
+  - Reports now include labeled-fit object count and probability entropy/confidence diagnostics
+- [x] Add explicit GRPO reward weights and GT-reward masking
+  - `--reward-svg-coherence`, `--reward-spatial-svg`, `--reward-gt-f1`
+  - `--gt-label-ratio` can simulate partial tree labels or SVG-only weak supervision
+- [x] Add label-ratio summary exporter
+  - `scripts/export/summarize_label_ratio_experiments.py`
+  - Produces one Simple/Hard F1 table across BCE, BCE+GRPO, and SVG-only/weak GRPO reports
+- [x] Smoke-test the label-ratio framework
+  - 10% labeled BCE context geometry, 1 epoch: Test Simple/Hard = 0.396 / 0.034
+  - SVG-only from-scratch GRPO geometry, 1 epoch: Test Simple/Hard = 0.396 / 0.034
+  - Smoke runs only verify plumbing; they are not final experimental results
+- [x] Run first formal label-ratio pilot on `svg_geometry_composite`
+  - BCE context MLP at 10/25/50/100% labels
+  - Warm-start GRPO at 10% and 100% GT reward labels
+  - Summary: `experiments/svg_assembly/reports/label_ratio_sgc_pilot_summary.md`
 
 ## Active Todo
 
+- [ ] Complete the real label-ratio matrix with the same Simple/Hard F1 summary
+  - Ratios: 10%, 25%, 50%, 100%
+  - Done: BCE 10/25/50/100%, GRPO 10/100%
+  - Remaining: GRPO 25/50%, SVG-only weak GRPO, no-manual `svg_geometry` comparison
+  - Recommended first mode: `svg_geometry_composite` for upper-bound manual context, then `svg_geometry` for no-manual setting
+- [ ] Compare whether SVG/spatial reward helps most when GT tree labels are scarce
 - [ ] Combine BCE pretraining + GRPO with strong KL constraint to preserve generalization
-- [ ] Use ALL 102 objects for GRPO (unsupervised RL doesn't need a test split)
+- [ ] Test all-object weak GRPO as an ablation, but keep the held-out test split for paper metrics
 - [ ] Learn a proper tree decoder (sequence/set-to-tree) instead of greedy connected-components
 - [ ] Improve no-leakage subassembly prediction precision
 - [ ] Add real-image or 3D-observation grounding benchmark
@@ -200,12 +241,13 @@ Warm-start GRPO + spatial: Test Hard 0.254 (worse than BCE 0.332).
 
 ## Next Steps (priority order)
 
-1. **GRPO on all 102 objects** (no train/test split for RL) - should improve generalization
-2. **Stronger BCE->GRPO bridge**: BCE warm-start + high KL penalty (beta=0.5~1.0) to stay
+1. **Run label-ratio pilot matrix** with seed 0 and summarize all results in one Simple/Hard F1 table
+2. **Check reward usefulness under scarce labels**: does SVG/spatial reward improve 10%/25% GT-label regimes?
+3. **Stronger BCE->GRPO bridge**: BCE warm-start + high KL penalty (beta=0.5~1.0) to stay
    close to the pretrained policy while exploring locally
-3. **Richer SVG reward**: beyond spatial proximity, use step order and connection
+4. **Richer SVG reward**: beyond spatial proximity, use step order and connection
    graph structure from manual steps
-4. **Learned tree decoder**: replace greedy connected-components with a sequential
+5. **Learned tree decoder**: replace greedy connected-components with a sequential
    merge predictor (RNN/Transformer decoder)
 
 ## Scripts Index

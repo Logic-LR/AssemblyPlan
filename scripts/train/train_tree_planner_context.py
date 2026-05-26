@@ -71,6 +71,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--val-fraction", type=float, default=0.15)
+    parser.add_argument(
+        "--label-ratio",
+        type=float,
+        default=1.0,
+        help="Fraction of fit objects with GT tree labels used for BCE training.",
+    )
+    parser.add_argument(
+        "--label-seed",
+        type=int,
+        default=None,
+        help="Seed for selecting labeled fit objects; defaults to --seed.",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--output",
@@ -85,6 +97,24 @@ def parse_args() -> argparse.Namespace:
         default="experiments/svg_assembly/context_planner_predictions_svg_geometry_test",
     )
     return parser.parse_args()
+
+
+def select_labeled_records(
+    records: Sequence[Dict[str, Any]],
+    label_ratio: float,
+    seed: int,
+) -> List[Dict[str, Any]]:
+    """Select a deterministic subset of fit objects for supervised labels."""
+    if not records:
+        return []
+    ratio = max(0.0, min(float(label_ratio), 1.0))
+    if ratio >= 1.0:
+        return list(records)
+    count = max(1, int(round(len(records) * ratio)))
+    rng = random.Random(seed)
+    indices = list(range(len(records)))
+    rng.shuffle(indices)
+    return [records[i] for i in sorted(indices[:count])]
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +263,26 @@ def pair_metrics(probs: np.ndarray, labels: np.ndarray) -> Dict[str, float]:
         "fp": fp,
         "fn": fn,
         "tn": tn,
+    }
+
+
+def probability_diagnostics(probs: np.ndarray) -> Dict[str, float]:
+    """Summarize sigmoid entropy/polarization for GRPO exploration analysis."""
+    if len(probs) == 0:
+        return {
+            "mean_binary_entropy": 0.0,
+            "mean_confidence": 0.0,
+            "frac_confident_0_01": 0.0,
+            "frac_confident_0_05": 0.0,
+        }
+    clipped = np.clip(probs.astype(np.float64), 1e-12, 1.0 - 1e-12)
+    entropy = -(clipped * np.log(clipped) + (1.0 - clipped) * np.log(1.0 - clipped))
+    confidence = np.maximum(clipped, 1.0 - clipped)
+    return {
+        "mean_binary_entropy": float(entropy.mean()),
+        "mean_confidence": float(confidence.mean()),
+        "frac_confident_0_01": float((confidence >= 0.99).mean()),
+        "frac_confident_0_05": float((confidence >= 0.95).mean()),
     }
 
 
@@ -555,7 +605,9 @@ def main() -> None:
     fit_records, val_records, test_records = split_records(
         records, args.val_fraction, args.seed
     )
-    train_x, train_y = build_pair_dataset(fit_records, args.feature_mode)
+    label_seed = args.seed if args.label_seed is None else args.label_seed
+    labeled_fit_records = select_labeled_records(fit_records, args.label_ratio, label_seed)
+    train_x, train_y = build_pair_dataset(labeled_fit_records, args.feature_mode)
     val_x, val_y = (
         build_pair_dataset(val_records, args.feature_mode)
         if val_records
@@ -575,6 +627,9 @@ def main() -> None:
     )
 
     tree_metrics = {
+        "labeled_train": evaluate_records(
+            labeled_fit_records, args.feature_mode, model, mean, std, threshold, device
+        ),
         "train": evaluate_records(
             fit_records, args.feature_mode, model, mean, std, threshold, device
         ),
@@ -614,9 +669,12 @@ def main() -> None:
         "dataset": args.dataset,
         "splits": {
             "fit_objects": len(fit_records),
+            "labeled_fit_objects": len(labeled_fit_records),
             "val_objects": len(val_records),
             "test_objects": len(test_records),
             "all_objects": len(records),
+            "label_ratio_requested": args.label_ratio,
+            "label_seed": label_seed,
         },
         "pair_examples": {
             "train": int(len(train_y)),
@@ -630,6 +688,11 @@ def main() -> None:
             "train": pair_metrics(train_probs, train_y),
             "val": pair_metrics(val_probs, val_y),
             "test": pair_metrics(test_probs, test_y),
+        },
+        "probability_diagnostics": {
+            "train": probability_diagnostics(train_probs),
+            "val": probability_diagnostics(val_probs),
+            "test": probability_diagnostics(test_probs),
         },
         "threshold": {
             "selected": threshold,

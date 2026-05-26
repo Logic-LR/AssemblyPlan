@@ -88,10 +88,45 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-k-sample", type=int, default=0, help="Top-K sampling (0=softmax all)")
     parser.add_argument("--kl-beta", type=float, default=0.01, help="KL penalty weight")
     parser.add_argument("--clip-eps", type=float, default=0.2, help="PPO clip range")
-    parser.add_argument("--svg-reward-weight", type=float, default=0.5)
+    parser.add_argument(
+        "--svg-reward-weight",
+        type=float,
+        default=None,
+        help="Legacy alias kept for old commands; prefer explicit --reward-* weights.",
+    )
+    parser.add_argument(
+        "--reward-svg-coherence",
+        type=float,
+        default=0.2,
+        help="Weight for manual step-group/subassembly coherence reward.",
+    )
+    parser.add_argument(
+        "--reward-spatial-svg",
+        type=float,
+        default=0.3,
+        help="Weight for per-step simplified-SVG spatial geometry reward.",
+    )
+    parser.add_argument(
+        "--reward-gt-f1",
+        type=float,
+        default=0.5,
+        help="Weight for GT Simple-F1 reward; set 0 for SVG-only weak supervision.",
+    )
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--val-fraction", type=float, default=0.15)
+    parser.add_argument(
+        "--gt-label-ratio",
+        type=float,
+        default=1.0,
+        help="Fraction of fit objects allowed to use GT F1 reward during GRPO.",
+    )
+    parser.add_argument(
+        "--gt-label-seed",
+        type=int,
+        default=None,
+        help="Seed for selecting GT-reward-labeled fit objects; defaults to --seed.",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--output",
@@ -143,6 +178,57 @@ def gt_f1_reward(pred_tree: Node, gt_tree: Node) -> float:
     """Simple F1 between predicted and GT trees."""
     metrics = eval_tree(gt_tree, pred_tree)
     return float(metrics["simple"]["f1"])
+
+
+def reward_weights(args: argparse.Namespace) -> Dict[str, float]:
+    """Return explicit reward weights, honoring the legacy SVG weight if used."""
+    svg_weight = float(args.reward_svg_coherence)
+    spatial_weight = float(args.reward_spatial_svg)
+    gt_weight = float(args.reward_gt_f1)
+    if args.svg_reward_weight is not None:
+        # Historical runs exposed one SVG-vs-GT knob but used a fixed internal
+        # split. Keep it as a compatibility shortcut for old command lines.
+        legacy_svg = max(0.0, min(float(args.svg_reward_weight), 1.0))
+        svg_weight = 0.4 * legacy_svg
+        spatial_weight = 0.6 * legacy_svg
+        gt_weight = 1.0 - legacy_svg
+    return {
+        "svg_coherence": svg_weight,
+        "spatial_svg": spatial_weight,
+        "gt_f1": gt_weight,
+    }
+
+
+def combine_rewards(r_svg: float, r_spatial: float, r_gt: float, weights: Dict[str, float]) -> float:
+    return (
+        weights["svg_coherence"] * r_svg
+        + weights["spatial_svg"] * r_spatial
+        + weights["gt_f1"] * r_gt
+    )
+
+
+def record_key(record: Dict[str, Any]) -> str:
+    return f"{record['category']}/{record['name']}"
+
+
+def select_gt_reward_keys(
+    records: Sequence[Dict[str, Any]],
+    label_ratio: float,
+    seed: int,
+) -> Set[str]:
+    """Select fit objects whose GT tree can contribute reward."""
+    if not records:
+        return set()
+    ratio = max(0.0, min(float(label_ratio), 1.0))
+    if ratio <= 0.0:
+        return set()
+    if ratio >= 1.0:
+        return {record_key(record) for record in records}
+    count = max(1, int(round(len(records) * ratio)))
+    rng = random.Random(seed)
+    indices = list(range(len(records)))
+    rng.shuffle(indices)
+    return {record_key(records[i]) for i in indices[:count]}
 
 
 # ---------------------------------------------------------------------------
@@ -514,6 +600,7 @@ def grpo_train_one_epoch(
     optimizer: torch.optim.Optimizer,
     device: torch.device,
     args: argparse.Namespace,
+    gt_reward_keys: Set[str],
 ) -> Dict[str, float]:
     model.train()
     ref_model.eval()
@@ -522,9 +609,14 @@ def grpo_train_one_epoch(
     total_kl = 0.0
     total_objects = 0
     all_rewards: List[float] = []
+    all_svg_rewards: List[float] = []
+    all_spatial_rewards: List[float] = []
+    all_gt_rewards: List[float] = []
+    weights = reward_weights(args)
 
     for record in records:
         gt_tree = build_tree_from_list(record["assembly_tree"])
+        gt_reward_available = record_key(record) in gt_reward_keys
         step_groups = record.get("manual_step_groups") or []
         subassemblies = _all_subassemblies(step_groups)
 
@@ -538,16 +630,14 @@ def grpo_train_one_epoch(
         # Compute rewards (now with spatial SVG)
         rewards = []
         for tree, _, _ in samples:
-            r_svg = svg_reward(tree, subassemblies)
-            r_spatial = spatial_svg_reward(tree, record)
-            r_gt = gt_f1_reward(tree, gt_tree)
-            # Combine: SVG coherence + spatial geometry + GT F1
-            r = (
-                0.2 * r_svg
-                + 0.3 * r_spatial
-                + 0.5 * r_gt
-            )
+            r_svg = svg_reward(tree, subassemblies) if weights["svg_coherence"] else 0.0
+            r_spatial = spatial_svg_reward(tree, record) if weights["spatial_svg"] else 0.0
+            r_gt = gt_f1_reward(tree, gt_tree) if weights["gt_f1"] and gt_reward_available else 0.0
+            r = combine_rewards(r_svg, r_spatial, r_gt, weights)
             rewards.append(r)
+            all_svg_rewards.append(r_svg)
+            all_spatial_rewards.append(r_spatial)
+            all_gt_rewards.append(r_gt)
 
         all_rewards.extend(rewards)
         advantages = _compute_advantages(rewards)
@@ -697,6 +787,9 @@ def grpo_train_one_epoch(
         "kl": total_kl / n,
         "avg_reward": float(np.mean(all_rewards)) if all_rewards else 0.0,
         "max_reward": float(np.max(all_rewards)) if all_rewards else 0.0,
+        "avg_svg_reward": float(np.mean(all_svg_rewards)) if all_svg_rewards else 0.0,
+        "avg_spatial_reward": float(np.mean(all_spatial_rewards)) if all_spatial_rewards else 0.0,
+        "avg_gt_reward": float(np.mean(all_gt_rewards)) if all_gt_rewards else 0.0,
     }
 
 
@@ -884,12 +977,15 @@ def main() -> None:
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+    weights = reward_weights(args)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     records = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
     fit_records, val_records, test_records = split_records(
         records, args.val_fraction, args.seed
     )
+    gt_label_seed = args.seed if args.gt_label_seed is None else args.gt_label_seed
+    gt_reward_keys = select_gt_reward_keys(fit_records, args.gt_label_ratio, gt_label_seed)
 
     # Model initialization: warm-start or from scratch
     if args.from_scratch or not args.warm_start:
@@ -922,6 +1018,8 @@ def main() -> None:
         print(f"From-scratch GRPO")
         print(f"  input_dim={input_dim} hidden_dim={hidden_dim} feature_mode={args.feature_mode}")
         print(f"  K={args.samples_per_object} tau={args.temperature} beta={args.kl_beta}")
+        print(f"  reward_weights={weights}")
+        print(f"  gt_reward_objects={len(gt_reward_keys)}/{len(fit_records)} seed={gt_label_seed}")
         print(f"  train_objects={len(fit_records)} val={len(val_records)} test={len(test_records)}")
 
         warm_val = {"metrics": {"simple": {"f1": 0.0}, "hard": {"f1": 0.0}}}
@@ -953,7 +1051,8 @@ def main() -> None:
         print(f"  input_dim={input_dim} hidden_dim={hidden_dim} dropout={dropout}")
         print(f"  feature_mode={args.feature_mode}")
         print(f"  K={args.samples_per_object} tau={args.temperature} beta={args.kl_beta}")
-        print(f"  svg_reward_weight={args.svg_reward_weight}")
+        print(f"  reward_weights={weights}")
+        print(f"  gt_reward_objects={len(gt_reward_keys)}/{len(fit_records)} seed={gt_label_seed}")
         print(f"  train_objects={len(fit_records)} val={len(val_records)} test={len(test_records)}")
 
         warm_threshold, warm_val = tune_threshold(
@@ -985,6 +1084,7 @@ def main() -> None:
             optimizer,
             device,
             args,
+            gt_reward_keys,
         )
 
         if epoch == 1 or epoch % 5 == 0 or epoch == args.epochs:
@@ -1012,6 +1112,9 @@ def main() -> None:
                     "train_kl": train_info["kl"],
                     "avg_reward": train_info["avg_reward"],
                     "max_reward": train_info["max_reward"],
+                    "avg_svg_reward": train_info["avg_svg_reward"],
+                    "avg_spatial_reward": train_info["avg_spatial_reward"],
+                    "avg_gt_reward": train_info["avg_gt_reward"],
                     "val_hard_f1": val_score,
                     "best_val_hard_f1": best_val_score,
                 }
@@ -1019,6 +1122,9 @@ def main() -> None:
             print(
                 f"epoch {epoch:3d}  loss={train_info['loss']:.4f}  "
                 f"kl={train_info['kl']:.4f}  avg_r={train_info['avg_reward']:.3f}  "
+                f"svg={train_info['avg_svg_reward']:.3f}  "
+                f"spatial={train_info['avg_spatial_reward']:.3f}  "
+                f"gt={train_info['avg_gt_reward']:.3f}  "
                 f"val_hard={val_score:.4f}  best={best_val_score:.4f}",
                 flush=True,
             )
@@ -1048,7 +1154,7 @@ def main() -> None:
             "temperature": args.temperature,
             "kl_beta": args.kl_beta,
             "clip_eps": args.clip_eps,
-            "svg_reward_weight": args.svg_reward_weight,
+            "reward_weights": weights,
             "epochs": args.epochs,
         },
         "architecture": {
@@ -1061,6 +1167,9 @@ def main() -> None:
             "fit_objects": len(fit_records),
             "val_objects": len(val_records),
             "test_objects": len(test_records),
+            "gt_reward_objects": len(gt_reward_keys),
+            "gt_label_ratio_requested": args.gt_label_ratio,
+            "gt_label_seed": gt_label_seed,
         },
         "warm_start_eval": {
             "val": warm_val,
@@ -1080,7 +1189,7 @@ def main() -> None:
         },
         "notes": [
             "GRPO fine-tuning from a pretrained context-aware MLP.",
-            "Reward = svg_reward_weight * SVG coherence + (1-w) * GT F1.",
+            "Reward is a weighted sum of SVG coherence, spatial SVG geometry, and GT Simple-F1.",
             "SVG coherence: fraction of non-leaf nodes whose part-set appears in a manual step group.",
             "At inference, uses greedy connected-components decoding (same as baseline).",
         ],
@@ -1104,7 +1213,7 @@ def main() -> None:
                 "samples_per_object": args.samples_per_object,
                 "temperature": args.temperature,
                 "kl_beta": args.kl_beta,
-                "svg_reward_weight": args.svg_reward_weight,
+                "reward_weights": weights,
             },
             "config": vars(args),
         },
