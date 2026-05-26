@@ -46,6 +46,7 @@ SVG-only neural scorer:       0.4094 / 0.0818
 SVG+geometry neural scorer:   0.4773 / 0.1557
 SVG+composite neural scorer:  0.4758 / 0.1631
 SVG+geom+composite neural:    0.4884 / 0.2057
+context+composite MLP:        0.5704 / 0.3316  ← new best
 manual composite oracle:      1.0000 / 1.0000
 pred. subassembly recall-heavy: 0.2869 / 0.0675
 pred. subassembly conservative: 0.4063 / 0.0976
@@ -94,8 +95,10 @@ replace manual/RAG composite context.
 
 - [x] Replace the connected-component merge decoder with a stronger set/graph tree decoder.
   - Implemented `train_tree_decoder.py`: transformer set-context encoder + pair head.
-  - Training in progress for geometry, svg_geometry, svg_geometry_composite modes.
-  - See `experiments/svg_assembly/reports/tree_decoder_*_report.json` for results.
+  - Transformer underperforms flat MLP on 73-object dataset (data too small for attention).
+  - Implemented `train_tree_planner_context.py`: context-augmented flat MLP instead.
+  - Context MLP + composite mode: Test Hard F1 **0.332** (vs 0.206 baseline, +61%).
+  - Pure no-leakage modes (geometry, svg_geometry): context features don't help yet.
 - [ ] Further improve no-leakage subassembly/composite prediction; candidate precision is still too low.
 - [ ] Remove the diagnostic dependency on known `k = len(gt_connections)` by learning or thresholding connection count.
 - [ ] Add a real-image or synthetic-domain-gap grounding benchmark for the robot setting.
