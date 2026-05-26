@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import json
 import math
@@ -15,8 +18,8 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from evaluate_paper_tree_metrics import average_metrics, build_tree_from_list, eval_tree, step_tree_from_child_specs
-from export_tree_predictions_and_equivalence_report import tree_to_list
+from eval.evaluate_paper_tree_metrics import average_metrics, build_tree_from_list, eval_tree, step_tree_from_child_specs
+from export.export_tree_predictions_and_equivalence_report import tree_to_list
 from train_tree_planner_baseline import (
     Cluster,
     cluster_token,

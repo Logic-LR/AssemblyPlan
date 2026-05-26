@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import json
 import math
@@ -15,7 +18,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from train_grounding_cnn import (
+from train.train_grounding_cnn import (
     GroundingDataset,
     LegacyGroundingCNN,
     TinyGroundingCNN,
@@ -25,7 +28,7 @@ from train_grounding_cnn import (
     predict,
     solve_assignment,
 )
-from train_simplified_connection_model import norm_pair, pair_features
+from train.train_simplified_connection_model import norm_pair, pair_features
 
 
 Pair = Tuple[str, str]

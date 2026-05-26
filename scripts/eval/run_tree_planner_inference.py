@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import json
 from pathlib import Path
@@ -12,8 +15,8 @@ import numpy as np
 import torch
 
 from evaluate_paper_tree_metrics import Node
-from train_tree_planner_baseline import plan_tree, sigmoid
-from train_tree_planner_nn import MergeMLP, plan_tree_nn
+from train.train_tree_planner_baseline import plan_tree, sigmoid
+from train.train_tree_planner_nn import MergeMLP, plan_tree_nn
 
 
 SHAPE_TYPES = ["elongated_bar", "plate_like", "irregular", "point_or_line"]

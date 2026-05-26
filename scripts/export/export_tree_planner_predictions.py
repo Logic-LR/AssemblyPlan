@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import json
 from pathlib import Path
@@ -10,9 +13,9 @@ from typing import Any, Dict, List, Sequence
 
 import numpy as np
 
-from evaluate_paper_tree_metrics import average_metrics, build_tree_from_list, eval_tree
-from export_tree_predictions_and_equivalence_report import tree_to_list
-from train_tree_planner_baseline import plan_tree
+from eval.evaluate_paper_tree_metrics import average_metrics, build_tree_from_list, eval_tree
+from export.export_tree_predictions_and_equivalence_report import tree_to_list
+from train.train_tree_planner_baseline import plan_tree
 
 
 def parse_args() -> argparse.Namespace:
