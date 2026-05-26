@@ -1,6 +1,6 @@
 # SVG-Enhanced Assembly Tree Generation Tasks
 
-Last updated: 2026-05-26
+Last updated: 2026-05-26 (tree decoder training)
 
 ## Task Definition
 
@@ -92,7 +92,10 @@ replace manual/RAG composite context.
 
 ## Active Todo
 
-- [ ] Replace the connected-component merge decoder with a stronger set/graph tree decoder.
+- [x] Replace the connected-component merge decoder with a stronger set/graph tree decoder.
+  - Implemented `train_tree_decoder.py`: transformer set-context encoder + pair head.
+  - Training in progress for geometry, svg_geometry, svg_geometry_composite modes.
+  - See `experiments/svg_assembly/reports/tree_decoder_*_report.json` for results.
 - [ ] Further improve no-leakage subassembly/composite prediction; candidate precision is still too low.
 - [ ] Remove the diagnostic dependency on known `k = len(gt_connections)` by learning or thresholding connection count.
 - [ ] Add a real-image or synthetic-domain-gap grounding benchmark for the robot setting.

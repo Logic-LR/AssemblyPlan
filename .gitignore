@@ -41,6 +41,8 @@ experiments/svg_assembly/tree_planner_predictions*/
 # Experiment prediction outputs and reports
 experiments/svg_assembly/predicted_assembly_trees*/
 experiments/svg_assembly/tree_planner_predictions*/
+experiments/svg_assembly/tree_decoder_predictions*/
+experiments/svg_assembly/context_planner_predictions*/
 experiments/svg_assembly/simplified_svg/
 experiments/svg_assembly/reports/
 experiments/svg_assembly/datasets/

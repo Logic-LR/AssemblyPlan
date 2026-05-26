@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import json
 import math
@@ -12,7 +15,7 @@ from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 import numpy as np
 
-from evaluate_paper_tree_metrics import (
+from eval.evaluate_paper_tree_metrics import (
     Node,
     PartSet,
     average_metrics,
