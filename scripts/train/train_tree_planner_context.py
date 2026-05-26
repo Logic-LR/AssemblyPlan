@@ -31,7 +31,7 @@ from eval.evaluate_paper_tree_metrics import (
     step_tree_from_child_specs,
 )
 from export.export_tree_predictions_and_equivalence_report import tree_to_list
-from train_tree_planner_baseline import (
+from train.train_tree_planner_baseline import (
     Cluster,
     cluster_repr,
     cluster_token,
@@ -67,6 +67,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--hidden-dim", type=int, default=192)
     parser.add_argument("--dropout", type=float, default=0.15)
+    parser.add_argument("--entropy-weight", type=float, default=0.0, help="Binary entropy bonus weight (0=off)")
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--val-fraction", type=float, default=0.15)
@@ -297,6 +298,7 @@ def train_model(
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
+    use_entropy = getattr(args, "entropy_weight", 0.0) > 0
     best_state = None
     best_val = -1.0
     history = []
@@ -308,7 +310,15 @@ def train_model(
             xb = xb.to(device)
             yb = yb.to(device)
             optimizer.zero_grad(set_to_none=True)
-            loss = criterion(model(xb), yb)
+            logits = model(xb)
+            bce_loss = criterion(logits, yb)
+            if use_entropy:
+                probs = torch.sigmoid(logits)
+                eps = 1e-8
+                entropy = -(probs * torch.log(probs + eps) + (1 - probs) * torch.log(1 - probs + eps)).mean()
+                loss = bce_loss - args.entropy_weight * entropy
+            else:
+                loss = bce_loss
             loss.backward()
             optimizer.step()
             total_loss += float(loss.item()) * len(yb)

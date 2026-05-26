@@ -41,7 +41,7 @@ from eval.evaluate_paper_tree_metrics import (
     step_tree_from_child_specs,
 )
 from export.export_tree_predictions_and_equivalence_report import tree_to_list
-from train_tree_planner_baseline import (
+from train.train_tree_planner_baseline import (
     Cluster,
     cluster_repr,
     cluster_token,
@@ -51,7 +51,7 @@ from train_tree_planner_baseline import (
     split_records,
     uses_composite_features,
 )
-from train_tree_planner_context import (
+from train.train_tree_planner_context import (
     ContextMergeMLP,
     _global_context_features,
     pair_feature_context,
@@ -77,12 +77,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--warm-start",
-        default="experiments/svg_assembly/reports/context_planner_svg_geometry_model.pt",
-        help="Pretrained context MLP checkpoint",
+        default="",
+        help="Pretrained context MLP checkpoint (empty = from scratch)",
     )
+    parser.add_argument("--from-scratch", action="store_true", help="Random init, no pretraining")
     parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--hidden-dim", type=int, default=192)
     parser.add_argument("--samples-per-object", type=int, default=8, help="K in GRPO")
     parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--top-k-sample", type=int, default=0, help="Top-K sampling (0=softmax all)")
     parser.add_argument("--kl-beta", type=float, default=0.01, help="KL penalty weight")
     parser.add_argument("--clip-eps", type=float, default=0.2, help="PPO clip range")
     parser.add_argument("--svg-reward-weight", type=float, default=0.5)
@@ -156,9 +159,10 @@ def _sample_merge_step(
     mean: np.ndarray,
     std: np.ndarray,
     temperature: float,
+    top_k: int,
     device: torch.device,
 ) -> Tuple[Cluster, Cluster, float, np.ndarray]:
-    """Sample one merge pair from the scored distribution. Returns (a, b, log_prob, probs)."""
+    """Sample one merge pair. Returns (a, b, log_prob, full_probs)."""
     features = part_feature_map(record, mode)
     composites = (
         composite_feature_map(record, mode)
@@ -181,14 +185,20 @@ def _sample_merge_step(
     x = ((np.vstack(raw_feats).astype(np.float32) - mean) / std).astype(np.float32)
     logits = (
         model(torch.from_numpy(x).to(device)).cpu().numpy()
-    )  # [P] logits, not sigmoid'd
+    )
 
-    # Temperature scaling and softmax
-    scaled = logits / max(temperature, 1e-6)
-    scaled -= scaled.max()  # numerical stability
+    if top_k > 0 and top_k < len(pairs):
+        # Top-K sampling: keep only top K, set rest to -inf
+        top_indices = np.argpartition(logits, -top_k)[-top_k:]
+        mask = np.full(len(logits), -1e10, dtype=np.float32)
+        mask[top_indices] = logits[top_indices]
+        scaled = mask / max(temperature, 1e-6)
+    else:
+        scaled = logits / max(temperature, 1e-6)
+
+    scaled -= scaled.max()
     probs = np.exp(scaled) / np.exp(scaled).sum()
 
-    # Sample one pair
     chosen_idx = int(np.random.choice(len(pairs), p=probs))
     i, j = pairs[chosen_idx]
     log_prob = float(np.log(max(probs[chosen_idx], 1e-12)))
@@ -204,6 +214,7 @@ def sample_tree(
     mean: np.ndarray,
     std: np.ndarray,
     temperature: float,
+    top_k: int,
     device: torch.device,
 ) -> Tuple[Node, List[float], List[np.ndarray]]:
     """Sample one assembly tree from the policy.
@@ -227,7 +238,7 @@ def sample_tree(
         )
 
         a, b, log_prob, probs = _sample_merge_step(
-            record, clusters_list, mode, model, mean, std, temperature, device
+            record, clusters_list, mode, model, mean, std, temperature, top_k, device
         )
         log_probs.append(log_prob)
         all_probs.append(probs)
@@ -286,7 +297,7 @@ def grpo_train_one_epoch(
         samples: List[Tuple[Node, List[float], List[np.ndarray]]] = []
         for _ in range(args.samples_per_object):
             samples.append(
-                sample_tree(record, mode, model, mean, std, args.temperature, device)
+                sample_tree(record, mode, model, mean, std, args.temperature, args.top_k_sample, device)
             )
 
         # Compute rewards
@@ -639,50 +650,83 @@ def main() -> None:
         records, args.val_fraction, args.seed
     )
 
-    # Load warm-start model
-    ckpt = torch.load(args.warm_start, map_location=device, weights_only=False)
-    input_dim = int(ckpt["input_dim"])
-    hidden_dim = int(ckpt["hidden_dim"])
-    dropout = float(ckpt.get("dropout", 0.15))
-    mean = ckpt["mean"]
-    std = ckpt["std"]
-    threshold = float(ckpt.get("threshold", 0.5))
+    # Model initialization: warm-start or from scratch
+    if args.from_scratch or not args.warm_start:
+        # From-scratch: compute input dim from data, random init, no standardization
+        from train.train_tree_planner_context import training_examples_with_context, build_pair_dataset
+        temp_x, _ = build_pair_dataset([fit_records[0]], args.feature_mode)
+        input_dim = int(temp_x.shape[1])
+        hidden_dim = args.hidden_dim
+        dropout = 0.15
 
-    model = ContextMergeMLP(input_dim, hidden_dim, dropout).to(device)
-    model.load_state_dict(ckpt["model_state"])
-    model.train()
+        model = ContextMergeMLP(input_dim, hidden_dim, dropout).to(device)
+        model.train()
 
-    # Reference model (frozen copy for KL penalty)
-    ref_model = ContextMergeMLP(input_dim, hidden_dim, dropout).to(device)
-    ref_model.load_state_dict(ckpt["model_state"])
-    ref_model.eval()
-    for p in ref_model.parameters():
-        p.requires_grad_(False)
+        ref_model = ContextMergeMLP(input_dim, hidden_dim, dropout).to(device)
+        ref_model.load_state_dict(model.state_dict())
+        ref_model.eval()
+        for p in ref_model.parameters():
+            p.requires_grad_(False)
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
-    )
+        # Compute standardization from training data
+        all_x, _ = build_pair_dataset(fit_records, args.feature_mode)
+        mean = all_x.mean(axis=0).astype(np.float32)
+        std = all_x.std(axis=0).astype(np.float32)
+        std[std < 1e-6] = 1.0
 
-    print(f"Warm-started from {args.warm_start}")
-    print(f"  input_dim={input_dim} hidden_dim={hidden_dim} dropout={dropout}")
-    print(f"  feature_mode={args.feature_mode}")
-    print(f"  K={args.samples_per_object} τ={args.temperature} β={args.kl_beta}")
-    print(f"  svg_reward_weight={args.svg_reward_weight}")
-    print(f"  train_objects={len(fit_records)} val={len(val_records)} test={len(test_records)}")
+        optimizer = torch.optim.AdamW(
+            model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+        )
 
-    # Evaluate warm-start
-    warm_threshold, warm_val = tune_threshold(
-        val_records or fit_records, args.feature_mode, model, mean, std, device
-    )
-    warm_test = evaluate_records(
-        test_records, args.feature_mode, model, mean, std, warm_threshold, device
-    )
-    print(
-        f"Warm-start:  val Simple={warm_val['metrics']['simple']['f1']:.4f} "
-        f"Hard={warm_val['metrics']['hard']['f1']:.4f}  "
-        f"test Simple={warm_test['metrics']['simple']['f1']:.4f} "
-        f"Hard={warm_test['metrics']['hard']['f1']:.4f}"
-    )
+        print(f"From-scratch GRPO")
+        print(f"  input_dim={input_dim} hidden_dim={hidden_dim} feature_mode={args.feature_mode}")
+        print(f"  K={args.samples_per_object} τ={args.temperature} β={args.kl_beta}")
+        print(f"  train_objects={len(fit_records)} val={len(val_records)} test={len(test_records)}")
+
+        warm_val = {"metrics": {"simple": {"f1": 0.0}, "hard": {"f1": 0.0}}}
+        warm_test = {"metrics": {"simple": {"f1": 0.0}, "hard": {"f1": 0.0}}}
+        warm_threshold = 0.5
+    else:
+        ckpt = torch.load(args.warm_start, map_location=device, weights_only=False)
+        input_dim = int(ckpt["input_dim"])
+        hidden_dim = int(ckpt["hidden_dim"])
+        dropout = float(ckpt.get("dropout", 0.15))
+        mean = ckpt["mean"]
+        std = ckpt["std"]
+
+        model = ContextMergeMLP(input_dim, hidden_dim, dropout).to(device)
+        model.load_state_dict(ckpt["model_state"])
+        model.train()
+
+        ref_model = ContextMergeMLP(input_dim, hidden_dim, dropout).to(device)
+        ref_model.load_state_dict(ckpt["model_state"])
+        ref_model.eval()
+        for p in ref_model.parameters():
+            p.requires_grad_(False)
+
+        optimizer = torch.optim.AdamW(
+            model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+        )
+
+        print(f"Warm-started from {args.warm_start}")
+        print(f"  input_dim={input_dim} hidden_dim={hidden_dim} dropout={dropout}")
+        print(f"  feature_mode={args.feature_mode}")
+        print(f"  K={args.samples_per_object} τ={args.temperature} β={args.kl_beta}")
+        print(f"  svg_reward_weight={args.svg_reward_weight}")
+        print(f"  train_objects={len(fit_records)} val={len(val_records)} test={len(test_records)}")
+
+        warm_threshold, warm_val = tune_threshold(
+            val_records or fit_records, args.feature_mode, model, mean, std, device
+        )
+        warm_test = evaluate_records(
+            test_records, args.feature_mode, model, mean, std, warm_threshold, device
+        )
+        print(
+            f"Warm-start:  val Simple={warm_val['metrics']['simple']['f1']:.4f} "
+            f"Hard={warm_val['metrics']['hard']['f1']:.4f}  "
+            f"test Simple={warm_test['metrics']['simple']['f1']:.4f} "
+            f"Hard={warm_test['metrics']['hard']['f1']:.4f}"
+        )
 
     history: List[Dict[str, Any]] = []
     best_val_score = -1.0
