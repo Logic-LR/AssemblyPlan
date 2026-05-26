@@ -1,0 +1,236 @@
+{
+  "parts": [
+    {
+      "id": 0,
+      "first_seen_step": 0,
+      "description": "large curved shell/body panel with top rim and multiple hanging tabs/legs"
+    },
+    {
+      "id": 1,
+      "first_seen_step": 1,
+      "description": "small bent rod/link with looped/rounded end"
+    },
+    {
+      "id": 2,
+      "first_seen_step": 1,
+      "description": "long vertical post/rod with rounded top and lower formed feature"
+    },
+    {
+      "id": 3,
+      "first_seen_step": 1,
+      "description": "long curved bar/strap member"
+    },
+    {
+      "id": 4,
+      "first_seen_step": 2,
+      "description": "long diagonal beam/strut"
+    },
+    {
+      "id": 5,
+      "first_seen_step": 2,
+      "description": "large curved frame/rail member"
+    },
+    {
+      "id": 6,
+      "first_seen_step": 2,
+      "description": "small connector pin/clip"
+    },
+    {
+      "id": 7,
+      "first_seen_step": 2,
+      "description": "long sweeping side panel/cover"
+    },
+    {
+      "id": 8,
+      "first_seen_step": 3,
+      "description": "large lattice/bracket plate"
+    },
+    {
+      "id": 9,
+      "first_seen_step": 3,
+      "description": "upright post/frame element with lower axle/joint details"
+    },
+    {
+      "id": 10,
+      "first_seen_step": 4,
+      "description": "main central chassis/body with vertical pillar and side extensions"
+    },
+    {
+      "id": 11,
+      "first_seen_step": 4,
+      "description": "seat/backrest or upper saddle-like frame"
+    },
+    {
+      "id": 12,
+      "first_seen_step": 4,
+      "description": "small lever/link mounted near upper right side"
+    },
+    {
+      "id": 13,
+      "first_seen_step": 5,
+      "description": "front fork/handlebar stem assembly"
+    },
+    {
+      "id": 14,
+      "first_seen_step": 5,
+      "description": "rear/upper frame section"
+    },
+    {
+      "id": 15,
+      "first_seen_step": 5,
+      "description": "front wheel assembly with axle detail"
+    },
+    {
+      "id": 16,
+      "first_seen_step": 5,
+      "description": "small brace/link near wheel/fork area"
+    }
+  ],
+  "step_analysis": [
+    {
+      "step": 0,
+      "parts_in_step": [
+        0
+      ],
+      "operation": "single-part introduction",
+      "result": [
+        0
+      ]
+    },
+    {
+      "step": 1,
+      "parts_in_step": [
+        1,
+        2,
+        3
+      ],
+      "operation": "small bent link and long curved bar are attached to/around the long vertical post, forming a fork/handle-like subassembly",
+      "result": [
+        [
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "step": 2,
+      "parts_in_step": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "operation": "long beam/strut, curved frame member, small connector, and sweeping panel are assembled into a side-frame subassembly",
+      "result": [
+        [
+          4,
+          5,
+          6,
+          7
+        ]
+      ]
+    },
+    {
+      "step": 3,
+      "parts_in_step": [
+        8,
+        9
+      ],
+      "operation": "large bracket plate is mounted onto the upright post/frame element",
+      "result": [
+        [
+          8,
+          9
+        ]
+      ]
+    },
+    {
+      "step": 4,
+      "parts_in_step": [
+        10,
+        11,
+        12
+      ],
+      "operation": "seat/backrest frame and a small lever/link are attached onto the main central chassis/body",
+      "result": [
+        [
+          10,
+          11,
+          12
+        ]
+      ]
+    },
+    {
+      "step": 5,
+      "parts_in_step": [
+        13,
+        14,
+        15,
+        16
+      ],
+      "operation": "previous subassemblies are integrated into the final product: the fork/handle assembly, rear/upper frame section, front wheel assembly, and a small brace/link are joined",
+      "result": [
+        [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            4,
+            5,
+            6,
+            7
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            10,
+            11,
+            12
+          ],
+          0,
+          13,
+          14,
+          15,
+          16
+        ]
+      ]
+    }
+  ],
+  "assembly_tree": [
+    [
+      [
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          4,
+          5,
+          6,
+          7
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          11,
+          12
+        ],
+        0
+      ],
+      13,
+      14,
+      15,
+      16
+    ]
+  ],
+  "confidence": "medium"
+}

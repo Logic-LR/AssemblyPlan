@@ -1,0 +1,57 @@
+{
+  "parts": [
+    {
+      "id": 0,
+      "description": "Large red frame/panel-like main body with many parallel ribs/rails and integrated end features"
+    },
+    {
+      "id": 1,
+      "description": "Green curved outer shell/cover assembly with long side wall and multiple hinge/lug features"
+    },
+    {
+      "id": 2,
+      "description": "Red main body assembly reused in step 1"
+    },
+    {
+      "id": 3,
+      "description": "Red right-side cover/bracket piece added to main body in step 1"
+    }
+  ],
+  "step_analysis": [
+    {
+      "step": 0,
+      "independent_parts": [
+        0,
+        1
+      ],
+      "assembled": "A large red structural body is joined with a green curved shell/cover component. The green part aligns along the right side and lower-right region of the red body, suggesting attachment of an outer casing/side cover onto the main structural frame.",
+      "result_subassembly": [
+        0,
+        1
+      ]
+    },
+    {
+      "step": 1,
+      "independent_parts": [
+        2,
+        3
+      ],
+      "assembled": "A red right-side cover/bracket piece is attached to the existing main assembly (shown as one red reused subassembly/black-box component). Geometry indicates the reused body already includes the previously attached shell from step 0, but it is not color-separated here.",
+      "result_subassembly": [
+        [
+          0,
+          1
+        ],
+        3
+      ]
+    }
+  ],
+  "assembly_tree": [
+    [
+      0,
+      1
+    ],
+    3
+  ],
+  "confidence": "medium"
+}

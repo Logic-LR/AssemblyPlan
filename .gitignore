@@ -1,0 +1,58 @@
+# Local environments and agent state
+.venv/
+.claude/
+
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS/archive noise
+.DS_Store
+**/.DS_Store
+Thumbs.db
+__MACOSX/
+
+# Large external/raw assets kept locally
+*.pdf
+pdfs/
+parts/
+*.obj
+
+# Generated image/model artifacts
+part_images/
+*.pt
+*.pth
+*.onnx
+*.npz
+*.pkl
+
+# Generated SVG feature caches and bulk planner exports
+svg_features/
+experiments/svg_assembly/simplified_svg/
+experiments/svg_assembly/predicted_assembly_trees*/
+experiments/svg_assembly/tree_planner_predictions*/
+
+# Experiment prediction outputs and reports
+experiments/svg_assembly/predicted_assembly_trees*/
+experiments/svg_assembly/tree_planner_predictions*/
+experiments/svg_assembly/simplified_svg/
+experiments/svg_assembly/reports/
+experiments/svg_assembly/datasets/
+experiments/svg_assembly/*.npz
+experiments/svg_assembly/experiment_summary.json
+experiments/svg_assembly/experiment_summary.md
+
+# Generated experiment outputs
+*.egg-info/
+*.npz
+
+# Scratch/log outputs
+*.log
+tmp/
+temp/

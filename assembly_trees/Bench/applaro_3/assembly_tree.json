@@ -1,0 +1,165 @@
+{
+  "parts": [
+    {
+      "id": 0,
+      "first_seen_step": 0,
+      "description": "long slotted/ladder-like base frame with many diagonal segments and lower end bracket/wheel-mount area"
+    },
+    {
+      "id": 1,
+      "first_seen_step": 0,
+      "description": "upright post/leg subassembly with top mounting eye and long vertical member"
+    },
+    {
+      "id": 2,
+      "first_seen_step": 0,
+      "description": "upright post/leg subassembly similar to part 1"
+    },
+    {
+      "id": 3,
+      "first_seen_step": 0,
+      "description": "upright post/leg subassembly similar to part 1"
+    },
+    {
+      "id": 4,
+      "first_seen_step": 0,
+      "description": "upright post/leg subassembly similar to part 1"
+    },
+    {
+      "id": 5,
+      "first_seen_step": 1,
+      "description": "upright post/leg subassembly similar to step-0 posts"
+    },
+    {
+      "id": 6,
+      "first_seen_step": 1,
+      "description": "upright post/leg subassembly similar to step-0 posts"
+    },
+    {
+      "id": 7,
+      "first_seen_step": 1,
+      "description": "upright post/leg subassembly similar to step-0 posts"
+    },
+    {
+      "id": 8,
+      "first_seen_step": 1,
+      "description": "upright post/leg subassembly similar to step-0 posts"
+    },
+    {
+      "id": 9,
+      "first_seen_step": 1,
+      "description": "main long side rail / frame member with two wheel positions near one end"
+    },
+    {
+      "id": 10,
+      "first_seen_step": 2,
+      "description": "large black-box frame/subassembly reused from earlier steps"
+    },
+    {
+      "id": 11,
+      "first_seen_step": 2,
+      "description": "small axle-and-two-wheel module mounted near one end of part 10"
+    },
+    {
+      "id": 12,
+      "first_seen_step": 2,
+      "description": "small roller/wheel bracket module mounted at opposite upper end of part 10"
+    },
+    {
+      "id": 13,
+      "first_seen_step": 3,
+      "description": "final large body/bin shell assembly"
+    },
+    {
+      "id": 14,
+      "first_seen_step": 3,
+      "description": "completed wheeled support frame/subassembly reused from step 2"
+    }
+  ],
+  "step_analysis": [
+    {
+      "step": 0,
+      "parts_in_step": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "summary": "One main elongated frame member is assembled/associated with four similar upright post/leg members. The posts are shown separately but as part of the active assembly context around the large frame. This step most plausibly creates a frame-side subassembly consisting of the main base/frame plus four uprights.",
+      "created_subassembly": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "step": 1,
+      "parts_in_step": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "summary": "A second analogous assembly is formed: a long side rail/frame member together with four similar upright post/leg members. Geometry parallels step 0 but colors differ and exact internal identity should not be cross-tracked by color.",
+      "created_subassembly": [
+        9,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "step": 2,
+      "parts_in_step": [
+        10,
+        11,
+        12
+      ],
+      "summary": "A previously built large frame appears as a black-box component. Two wheel-related modules are actively attached: one larger two-wheel/axle module at one end and one smaller roller/caster-like bracket at the other end. This yields a mobile support frame.",
+      "created_subassembly": [
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "step": 3,
+      "parts_in_step": [
+        13,
+        14
+      ],
+      "summary": "Final assembly joins the large body/bin shell to the completed wheeled support frame from the previous step, producing the finished product.",
+      "created_subassembly": [
+        13,
+        14
+      ]
+    }
+  ],
+  "assembly_tree": [
+    [
+      [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        9,
+        5,
+        6,
+        7,
+        8
+      ]
+    ],
+    11,
+    12,
+    13
+  ],
+  "confidence": "medium"
+}

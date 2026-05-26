@@ -1,0 +1,289 @@
+{
+  "parts": [
+    {
+      "id": 0,
+      "first_seen_step": 0,
+      "description": "small slanted connector/bracket plate"
+    },
+    {
+      "id": 1,
+      "first_seen_step": 0,
+      "description": "left tray/bin body subassembly shell"
+    },
+    {
+      "id": 2,
+      "first_seen_step": 0,
+      "description": "left upper cover/frame panel"
+    },
+    {
+      "id": 3,
+      "first_seen_step": 0,
+      "description": "left small linking plate"
+    },
+    {
+      "id": 4,
+      "first_seen_step": 0,
+      "description": "right small slanted connector/bracket plate"
+    },
+    {
+      "id": 5,
+      "first_seen_step": 0,
+      "description": "right upper cover/frame panel"
+    },
+    {
+      "id": 6,
+      "first_seen_step": 0,
+      "description": "right tray/bin body subassembly shell"
+    },
+    {
+      "id": 7,
+      "first_seen_step": 0,
+      "description": "central bridge/link plate between side modules"
+    },
+    {
+      "id": 8,
+      "first_seen_step": 1,
+      "description": "long vertical post A"
+    },
+    {
+      "id": 9,
+      "first_seen_step": 1,
+      "description": "long vertical post B"
+    },
+    {
+      "id": 10,
+      "first_seen_step": 2,
+      "description": "large ladder-like side frame with two uprights and many cross members"
+    },
+    {
+      "id": 11,
+      "first_seen_step": 3,
+      "description": "large top/back panel joining left and right upper areas"
+    },
+    {
+      "id": 12,
+      "first_seen_step": 4,
+      "description": "final large outer housing/base shell"
+    }
+  ],
+  "step_analysis": [
+    {
+      "step": 0,
+      "parts_in_step": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "new_parts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "assembled": [
+        [
+          1,
+          3,
+          0
+        ],
+        [
+          6,
+          5,
+          4
+        ],
+        [
+          [
+            1,
+            3,
+            0
+          ],
+          7,
+          [
+            6,
+            5,
+            4
+          ],
+          2
+        ]
+      ],
+      "notes": "Two mirrored bin/tray side modules are shown, plus a central bridging plate. The visible active blue part is the central bridge/link plate, while hidden colors indicate the other mating parts. Left and right small slanted bracket-like pieces attach near the front/upper edges. A left upper panel is also joined into the growing combined upper assembly. The right upper panel is present in the step geometry as part of the mirrored construction."
+    },
+    {
+      "step": 1,
+      "parts_in_step": [
+        8,
+        9
+      ],
+      "new_parts": [
+        8,
+        9
+      ],
+      "assembled": [
+        [
+          [
+            [
+              1,
+              3,
+              0
+            ],
+            7,
+            [
+              6,
+              5,
+              4
+            ],
+            2
+          ],
+          8,
+          9
+        ]
+      ],
+      "notes": "Two long vertical posts are added to the previously created upper/bin assembly. One post is clearly active; the other and the receiving assembly are shown hidden. This creates a taller structural subassembly."
+    },
+    {
+      "step": 2,
+      "parts_in_step": [
+        10
+      ],
+      "new_parts": [
+        10
+      ],
+      "assembled": [
+        [
+          [
+            [
+              [
+                1,
+                3,
+                0
+              ],
+              7,
+              [
+                6,
+                5,
+                4
+              ],
+              2
+            ],
+            8,
+            9
+          ],
+          10
+        ]
+      ],
+      "notes": "A large ladder-like side/back frame with two uprights and many cross links is attached to the existing tall assembly. The frame is the only newly colored active part; prior structure is shown hidden."
+    },
+    {
+      "step": 3,
+      "parts_in_step": [
+        11
+      ],
+      "new_parts": [
+        11
+      ],
+      "assembled": [
+        [
+          [
+            [
+              [
+                [
+                  1,
+                  3,
+                  0
+                ],
+                7,
+                [
+                  6,
+                  5,
+                  4
+                ],
+                2
+              ],
+              8,
+              9
+            ],
+            10
+          ],
+          11
+        ]
+      ],
+      "notes": "A large top/back panel spanning between left and right upper regions is installed onto the frame-and-bin assembly. The panel is the active part in this step."
+    },
+    {
+      "step": 4,
+      "parts_in_step": [
+        12
+      ],
+      "new_parts": [
+        12
+      ],
+      "assembled": [
+        [
+          [
+            [
+              [
+                [
+                  [
+                    1,
+                    3,
+                    0
+                  ],
+                  7,
+                  [
+                    6,
+                    5,
+                    4
+                  ],
+                  2
+                ],
+                8,
+                9
+              ],
+              10
+            ],
+            11
+          ],
+          12
+        ]
+      ],
+      "notes": "The final large outer housing/base shell is added around/under the previous structure, producing the completed product. This shell encloses much of the prior assembly and forms the exterior."
+    }
+  ],
+  "assembly_tree": [
+    [
+      [
+        [
+          [
+            [
+              1,
+              3,
+              0
+            ],
+            7,
+            [
+              6,
+              5,
+              4
+            ],
+            2
+          ],
+          8,
+          9
+        ],
+        10
+      ],
+      11
+    ],
+    12
+  ],
+  "confidence": "medium"
+}

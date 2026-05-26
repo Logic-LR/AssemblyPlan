@@ -1,0 +1,137 @@
+{
+  "parts": [
+    {
+      "part_id": 0,
+      "first_seen_step": 0,
+      "description": "large red lattice/frame-like subassembly with long diagonal members, top mounting area, and lower vertical tail"
+    },
+    {
+      "part_id": 1,
+      "first_seen_step": 0,
+      "description": "green long narrow rail/side member with top cap and lower mounting tab"
+    },
+    {
+      "part_id": 2,
+      "first_seen_step": 0,
+      "description": "purple large panel/frame assembly with many longitudinal ribs"
+    },
+    {
+      "part_id": 3,
+      "first_seen_step": 0,
+      "description": "yellow long vertical strut/rail with top bracket and lower tip"
+    },
+    {
+      "part_id": 4,
+      "first_seen_step": 1,
+      "description": "green tray/deck panel assembly with many cross ribs and left latch/tab"
+    },
+    {
+      "part_id": 5,
+      "first_seen_step": 2,
+      "description": "red long left lower side linkage/rail assembly"
+    },
+    {
+      "part_id": 6,
+      "first_seen_step": 2,
+      "description": "red long right lower side linkage/rail assembly"
+    }
+  ],
+  "step_analysis": [
+    {
+      "step": 0,
+      "colors_to_parts": {
+        "red": 0,
+        "#00ff4a": 1,
+        "#9500ff": 2,
+        "#ffdf00": 3
+      },
+      "action": "Initial visible active assembly combines four major structural parts into a large base/body subassembly.",
+      "assembled_from": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "result": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "step": 1,
+      "colors_to_parts": {
+        "red": 2,
+        "#00ff4a": 4
+      },
+      "action": "A new green deck/tray panel is attached to the previously built large body/frame subassembly shown now as a black-box red component.",
+      "assembled_from": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        4
+      ],
+      "result": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        4
+      ]
+    },
+    {
+      "step": 2,
+      "colors_to_parts": {
+        "red": 5,
+        "#00ff4a": 6
+      },
+      "action": "Final assembly joins the earlier body/deck subassembly (now reused as a black-box component, geometry matching the overall product) with two long side linkage/rail assemblies, one on each side.",
+      "assembled_from": [
+        [
+          [
+            0,
+            1,
+            2,
+            3
+          ],
+          4
+        ],
+        5,
+        6
+      ],
+      "result": [
+        [
+          [
+            0,
+            1,
+            2,
+            3
+          ],
+          4
+        ],
+        5,
+        6
+      ]
+    }
+  ],
+  "assembly_tree": [
+    [
+      [
+        0,
+        1,
+        2,
+        3
+      ],
+      4
+    ],
+    5,
+    6
+  ],
+  "confidence": "medium"
+}

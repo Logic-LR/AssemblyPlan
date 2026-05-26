@@ -1,0 +1,232 @@
+{
+  "parts": [
+    {
+      "id": 0,
+      "first_seen_step": 0,
+      "description": "small slatted/rod-like panel subassembly"
+    },
+    {
+      "id": 1,
+      "first_seen_step": 0,
+      "description": "flat panel with end tabs/edge flange"
+    },
+    {
+      "id": 2,
+      "first_seen_step": 0,
+      "description": "small slatted/rod-like panel subassembly"
+    },
+    {
+      "id": 3,
+      "first_seen_step": 0,
+      "description": "flat panel with end tabs/edge flange"
+    },
+    {
+      "id": 4,
+      "first_seen_step": 0,
+      "description": "small slatted/rod-like panel subassembly"
+    },
+    {
+      "id": 5,
+      "first_seen_step": 0,
+      "description": "flat panel with end tabs/edge flange"
+    },
+    {
+      "id": 6,
+      "first_seen_step": 1,
+      "description": "large gridded/slatted panel"
+    },
+    {
+      "id": 7,
+      "first_seen_step": 2,
+      "description": "triangular/trapezoidal side frame panel"
+    },
+    {
+      "id": 8,
+      "first_seen_step": 2,
+      "description": "large side frame/body panel"
+    },
+    {
+      "id": 9,
+      "first_seen_step": 3,
+      "description": "long perforated/feature strip with several peg-like details"
+    },
+    {
+      "id": 10,
+      "first_seen_step": 3,
+      "description": "large box/body subassembly reused as black-box"
+    },
+    {
+      "id": 11,
+      "first_seen_step": 4,
+      "description": "upright support/link member"
+    },
+    {
+      "id": 12,
+      "first_seen_step": 4,
+      "description": "completed upper/body subassembly reused as black-box"
+    },
+    {
+      "id": 13,
+      "first_seen_step": 5,
+      "description": "second upright support/link member"
+    },
+    {
+      "id": 14,
+      "first_seen_step": 5,
+      "description": "rear/upper frame panel"
+    },
+    {
+      "id": 15,
+      "first_seen_step": 6,
+      "description": "base/seat-like platform subassembly"
+    },
+    {
+      "id": 16,
+      "first_seen_step": 6,
+      "description": "completed frame/body assembly reused as black-box"
+    }
+  ],
+  "step_analysis": [
+    {
+      "step": 0,
+      "parts_in_step": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "action": "Three similar pairings are assembled; each slatted/rod-like component mates to a corresponding flat panel.",
+      "created_subassemblies": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "step": 1,
+      "parts_in_step": [
+        6
+      ],
+      "action": "Single independent large slatted panel shown as an active assembly/result step; no second colored part is visible.",
+      "created_subassemblies": [
+        6
+      ]
+    },
+    {
+      "step": 2,
+      "parts_in_step": [
+        7,
+        8
+      ],
+      "action": "A triangular/trapezoidal frame panel is joined to a larger side/body panel, forming a larger structural side assembly.",
+      "created_subassemblies": [
+        [
+          7,
+          8
+        ]
+      ]
+    },
+    {
+      "step": 3,
+      "parts_in_step": [
+        9,
+        10
+      ],
+      "action": "Long perforated strip/detail part is attached onto a previously completed box/body subassembly.",
+      "created_subassemblies": [
+        [
+          10,
+          9
+        ]
+      ]
+    },
+    {
+      "step": 4,
+      "parts_in_step": [
+        11,
+        12
+      ],
+      "action": "An upright support/link member is attached to a larger completed upper/body subassembly.",
+      "created_subassemblies": [
+        [
+          12,
+          11
+        ]
+      ]
+    },
+    {
+      "step": 5,
+      "parts_in_step": [
+        13,
+        14
+      ],
+      "action": "A second upright/link member is attached to a rear/upper frame panel, making another side support assembly.",
+      "created_subassemblies": [
+        [
+          14,
+          13
+        ]
+      ]
+    },
+    {
+      "step": 6,
+      "parts_in_step": [
+        15,
+        16
+      ],
+      "action": "The base/seat-like platform subassembly is joined with the completed frame/body assembly to form the final product.",
+      "created_subassemblies": [
+        [
+          16,
+          15
+        ]
+      ]
+    }
+  ],
+  "assembly_tree": [
+    [
+      [
+        [
+          [
+            7,
+            8
+          ],
+          9
+        ],
+        11,
+        [
+          14,
+          13
+        ]
+      ],
+      15
+    ],
+    [
+      [
+        0,
+        1
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        4,
+        5
+      ],
+      6
+    ]
+  ],
+  "confidence": "medium"
+}
