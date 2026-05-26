@@ -127,7 +127,13 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Seed for selecting GT-reward-labeled fit objects; defaults to --seed.",
     )
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=0, help="Model init + sampling seed")
+    parser.add_argument(
+        "--split-seed",
+        type=int,
+        default=None,
+        help="Seed for val split; defaults to --seed. Fix this to compare across model seeds.",
+    )
     parser.add_argument(
         "--output",
         default="experiments/svg_assembly/reports/grpo_svg_geometry_report.json",
@@ -981,8 +987,9 @@ def main() -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     records = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
+    split_seed = args.seed if args.split_seed is None else args.split_seed
     fit_records, val_records, test_records = split_records(
-        records, args.val_fraction, args.seed
+        records, args.val_fraction, args.seed, val_seed=split_seed
     )
     gt_label_seed = args.seed if args.gt_label_seed is None else args.gt_label_seed
     gt_reward_keys = select_gt_reward_keys(fit_records, args.gt_label_ratio, gt_label_seed)

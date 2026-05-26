@@ -70,10 +70,10 @@ def node_actions(node: Node) -> List[Dict[str, Any]]:
     return actions
 
 
-def split_records(records: Sequence[Dict[str, Any]], val_fraction: float, seed: int) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+def split_records(records: Sequence[Dict[str, Any]], val_fraction: float, seed: int, val_seed: int | None = None) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     train_records = [record for record in records if record.get("split") == "train"]
     test_records = [record for record in records if record.get("split") == "test"]
-    rng = random.Random(seed)
+    rng = random.Random(val_seed if val_seed is not None else seed)
     rng.shuffle(train_records)
     val_count = max(1, round(len(train_records) * val_fraction)) if len(train_records) > 1 and val_fraction > 0 else 0
     val_records = train_records[:val_count]

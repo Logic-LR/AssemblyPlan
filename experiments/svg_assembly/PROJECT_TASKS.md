@@ -34,6 +34,107 @@ Manuals are used in two ways:
 - 754 primitive parts, 404 tree actions, 302 composite tokens
 - Feature modes: `geometry`, `svg`, `svg_geometry`, `svg_composite`, `svg_geometry_composite`
 
+## Current Result Files
+
+Main experiment summaries live in:
+
+```text
+experiments/svg_assembly/reports/
+```
+
+Key files:
+
+| File | Content |
+|---|---|
+| `label_ratio_sgc_full_summary.md` | `svg_geometry_composite` label-ratio BCE vs GRPO comparison |
+| `label_ratio_sg_bce_summary.md` | no-manual `svg_geometry` label-ratio BCE comparison |
+| `svg_only_grpo_summary.md` | SVG-only GRPO ablations with GT tree reward disabled |
+| `label_ratio_combined_summary.md` | combined label-ratio summary across major runs |
+
+## Current Experiment Interpretation
+
+The current paper direction is:
+
+> Manual-step SVGs provide weak structural supervision for assembly-tree generation,
+> especially when full ground-truth assembly-tree labels are scarce.
+
+### Main low-label result: `svg_geometry_composite`
+
+`svg_geometry_composite` means SVG + geometry + manual-step composite/subassembly context.
+
+| Method | Label ratio | Test Simple | Test Hard | All Hard |
+|---|---:|---:|---:|---:|
+| BCE context MLP | 10% | 0.466 | 0.182 | 0.270 |
+| GRPO | 10% | 0.487 | 0.237 | 0.333 |
+| BCE context MLP | 25% | 0.535 | 0.261 | 0.386 |
+| GRPO | 25% | 0.552 | 0.274 | 0.376 |
+| BCE context MLP | 50% | 0.495 | 0.199 | 0.442 |
+| GRPO | 50% | 0.491 | 0.195 | 0.410 |
+| BCE context MLP | 100% | 0.570 | 0.332 | 0.673 |
+| GRPO | 100% | 0.516 | 0.210 | 0.546 |
+
+Interpretation:
+
+- GRPO is not universally better than supervised BCE.
+- GRPO helps most when labels are scarce: 10% labels improves Test Hard from 0.182 to 0.237; 25% labels improves from 0.261 to 0.274.
+- At 50% and 100% labels, GRPO hurts or does not help, so full-supervision BCE remains the strongest supervised baseline.
+- Therefore GRPO should be framed as a weak/low-label SVG reward method, not as a replacement for full tree supervision.
+
+### No-manual comparison: `svg_geometry`
+
+`svg_geometry` removes manual-derived composite/subassembly context and keeps only raw SVG/geometry part features.
+
+| Label ratio | Test Simple | Test Hard | All Hard |
+|---:|---:|---:|---:|
+| 10% | 0.338 | 0.060 | 0.164 |
+| 25% | 0.365 | 0.077 | 0.164 |
+| 50% | 0.455 | 0.124 | 0.333 |
+| 100% | 0.407 | 0.108 | 0.423 |
+
+Interpretation:
+
+- Raw SVG/geometry alone is not enough to recover assembly hierarchy.
+- Even with 100% labels, `svg_geometry` reaches only 0.108 Test Hard, far below `svg_geometry_composite` BCE at 0.332.
+- The current strong results therefore come mainly from manual-step composite/subassembly context, not simply from single-part SVG shape.
+
+### SVG-only GRPO: GT tree reward disabled
+
+These runs use only SVG coherence + spatial SVG reward:
+
+```text
+--reward-gt-f1 0 --reward-svg-coherence 0.4 --reward-spatial-svg 0.6 --gt-label-ratio 0
+```
+
+| Method | Feature mode | Seed | Test Hard |
+|---|---|---:|---:|
+| GRPO scratch | `svg_geometry` | 0 | 0.057 |
+| GRPO warm | `svg_geometry` | 0 | 0.059 |
+| GRPO scratch | `svg_geometry_composite` | 0 | 0.423 |
+| GRPO scratch | `svg_geometry_composite` | 1 | 0.365 |
+| GRPO scratch | `svg_geometry_composite` | 2 | 0.250 |
+| GRPO warm | `svg_geometry_composite` | 0 | 0.233 |
+
+Interpretation:
+
+- SVG-only GRPO with raw `svg_geometry` is weak; Test Hard stays around 0.06.
+- SVG-only GRPO with `svg_geometry_composite` is promising: scratch runs reach 0.423 / 0.365 / 0.250 Test Hard across seeds, averaging roughly 0.346.
+- This supports the claim that manual-step SVGs contain usable assembly structure.
+- The result has high variance and should be validated with fixed data splits and varied model seeds before becoming the headline number.
+
+### Current takeaway
+
+Safe paper claim:
+
+> Manual-step SVGs contain meaningful subassembly and spatial structure. By parsing
+> these signals into composite features and SVG-derived rewards, we can improve
+> assembly-tree generation under scarce tree labels.
+
+Claims to avoid:
+
+- Do not claim that raw single-part SVGs alone solve assembly-tree generation.
+- Do not claim that GRPO universally beats supervised BCE.
+- Do not report the seed-0 SVG-only GRPO result as final without noting variance.
+
 ## Model Architecture (all models share this)
 
 All tree planners use the same **greedy connected-components decoder**.
