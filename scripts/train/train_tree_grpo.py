@@ -9,7 +9,7 @@ then uses Group Relative Policy Optimization to shape the policy with:
   2. GT tree F1: conventional supervised signal (where available).
 
 At each merge step the policy samples one pair from the scored distribution
-(temperature τ), producing diverse trees. Rewards are normalized within each
+(temperature tau), producing diverse trees. Rewards are normalized within each
 object's group, and the policy is updated with clipped importance sampling
 plus a KL penalty towards the reference model.
 """
@@ -226,10 +226,10 @@ def spatial_svg_reward(
     if not step_data:
         return 0.0
 
-    # Build part→color mapping
+    # Build part->color mapping
     part_color = _part_to_svg_color(record)
 
-    # Build step → part_sets
+    # Build step -> part_sets
     step_part_sets: Dict[int, Set[PartSet]] = {}
     for step in record.get("manual_step_groups") or []:
         sid = step["step_id"]
@@ -659,7 +659,7 @@ def grpo_train_one_epoch(
                     clipped = torch.clamp(ratio, 1.0 - args.clip_eps, 1.0 + args.clip_eps)
                     obj_loss += -torch.min(ratio * adv, clipped * adv)
 
-                    # KL penalty: KL(π_θ || π_ref) at this state
+                    # KL penalty: KL(pi_theta || pi_ref) at this state
                     with torch.no_grad():
                         ref_logits_scaled = (
                             ref_model(torch.from_numpy(x).to(device))
@@ -753,7 +753,7 @@ def plan_tree_greedy(
     threshold: float,
     device: torch.device,
 ) -> Any:
-    from train_tree_planner_baseline import connected_components, cluster_token
+    from train.train_tree_planner_baseline import connected_components, cluster_token
 
     current: Set[Cluster] = {
         frozenset([part]) for part in range(int(record["num_parts"]))
@@ -921,7 +921,7 @@ def main() -> None:
 
         print(f"From-scratch GRPO")
         print(f"  input_dim={input_dim} hidden_dim={hidden_dim} feature_mode={args.feature_mode}")
-        print(f"  K={args.samples_per_object} τ={args.temperature} β={args.kl_beta}")
+        print(f"  K={args.samples_per_object} tau={args.temperature} beta={args.kl_beta}")
         print(f"  train_objects={len(fit_records)} val={len(val_records)} test={len(test_records)}")
 
         warm_val = {"metrics": {"simple": {"f1": 0.0}, "hard": {"f1": 0.0}}}
@@ -952,7 +952,7 @@ def main() -> None:
         print(f"Warm-started from {args.warm_start}")
         print(f"  input_dim={input_dim} hidden_dim={hidden_dim} dropout={dropout}")
         print(f"  feature_mode={args.feature_mode}")
-        print(f"  K={args.samples_per_object} τ={args.temperature} β={args.kl_beta}")
+        print(f"  K={args.samples_per_object} tau={args.temperature} beta={args.kl_beta}")
         print(f"  svg_reward_weight={args.svg_reward_weight}")
         print(f"  train_objects={len(fit_records)} val={len(val_records)} test={len(test_records)}")
 

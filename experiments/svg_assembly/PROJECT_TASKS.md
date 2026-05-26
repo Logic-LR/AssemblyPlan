@@ -41,12 +41,12 @@ They differ only in how they score candidate merge pairs:
 
 ```
 Input: set of N part tokens (geometry + SVG + optional composite)
-  → for each merge step:
+  -> for each merge step:
     1. compute per-cluster features (mean/max/min of part features)
     2. for each candidate pair (a,b), build pair feature vector
     3. score each pair with a learned function (logistic/MLP/context-MLP)
     4. greedily merge the highest-scoring pair(s) above threshold
-  → output: assembly tree
+  -> output: assembly tree
 ```
 
 ### Feature modes
@@ -91,11 +91,11 @@ GRPO warm-start                       0.4132     0.1058     0.3139
 === svg_geometry_composite (with manual subassembly labels) ===
 greedy baseline                       0.4214     0.1128     0.2959
 NN flat MLP                           0.4884     0.2057     0.6083
-context MLP (BCE)                     0.5704     0.3316     0.6729  ← BEST OVERALL
+context MLP (BCE)                     0.5704     0.3316     0.6729  -> BEST OVERALL
 context MLP + entropy reg             0.5228     0.2167     0.6137
-GRPO warm-start (BCE→RL)             0.5651     0.3064     0.6238
-GRPO from-scratch K=8  τ=3.0         0.4519     0.1696     0.3696
-GRPO from-scratch K=16 τ=1.5         0.5203     0.2577     0.3846
+GRPO warm-start (BCE->RL)             0.5651     0.3064     0.6238
+GRPO from-scratch K=8  tau=3.0         0.4519     0.1696     0.3696
+GRPO from-scratch K=16 tau=1.5         0.5203     0.2577     0.3846
 GRPO from-scratch K=16 + spatial     0.5018     0.2813     0.3947
 GRPO warm-start + spatial            0.5344     0.2540     0.5258
 manual composite oracle              1.0000     1.0000     1.0000
@@ -108,16 +108,16 @@ manual composite oracle              1.0000     1.0000     1.0000
 ### 1. Composite features are the single biggest factor
 
 No-composite best: 0.162 (geometry NN)
-Composite best:    0.332 (context MLP) → 2x improvement
+Composite best:    0.332 (context MLP) -> 2x improvement
 
 Manual-derived subassembly SVG prototypes encode rich assembly knowledge.
 
 ### 2. Context features amplify composite, hurt simpler modes
 
 ```
-geometry:       flat 0.162 → context 0.109  (worse)
-svg+geometry:   flat 0.156 → context 0.108  (worse)
-composite:      flat 0.206 → context 0.332  (+61%!)
+geometry:       flat 0.162 -> context 0.109  (worse)
+svg+geometry:   flat 0.156 -> context 0.108  (worse)
+composite:      flat 0.206 -> context 0.332  (+61%!)
 ```
 
 Without composite info, global context is noise. With composite,
@@ -126,19 +126,19 @@ Without composite info, global context is noise. With composite,
 ### 3. Transformer decoder fails on 73-object dataset
 
 The teacher-forcing transformer (train_tree_decoder.py) underperforms all
-flat MLP baselines. 73 training objects × ~4 actions = ~300 states is
+flat MLP baselines. 73 training objects x ~4 actions = ~300 states is
 insufficient for attention-based set encoding.
 
 ### 4. GRPO exploration problem: BCE makes logits too polarized
 
-BCE pretrained models produce near-deterministic scores (sigmoid ≈ 0 or 1).
-At τ=1.0, only 15-20% of sampled trees are unique. Temperature helps
-(τ=5 → 44%, τ=8 → 52%) but doesn't solve the fundamental issue.
-Top-K sampling makes it worse. Entropy regularization (λ=0.1) barely helps.
+BCE pretrained models produce near-deterministic scores (sigmoid ~= 0 or 1).
+At tau=1.0, only 15-20% of sampled trees are unique. Temperature helps
+(tau=5 -> 44%, tau=8 -> 52%) but doesn't solve the fundamental issue.
+Top-K sampling makes it worse. Entropy regularization (lambda=0.1) barely helps.
 
 ### 5. GRPO from-scratch explores well but overfits
 
-Random init → natural high entropy → diverse sampling.
+Random init -> natural high entropy -> diverse sampling.
 Val Hard reaches 0.509 (beats BCE's 0.449), but Test Hard only 0.281
 (vs BCE's 0.332). The model finds good train-object strategies that
 don't generalize. K=16 > K=8, suggesting more samples helps.
@@ -176,16 +176,16 @@ Warm-start GRPO + spatial: Test Hard 0.254 (worse than BCE 0.332).
 - [x] Implement transformer set-context tree decoder (`train_tree_decoder.py`)
   - Negative result: underperforms flat MLP on 73-object dataset
 - [x] Implement context-augmented flat MLP (`train_tree_planner_context.py`)
-  - **Best model**: context MLP + composite → Test Hard F1 0.332 (+61% over baseline)
+  - **Best model**: context MLP + composite -> Test Hard F1 0.332 (+61% over baseline)
 - [x] Implement GRPO tree planner (`train_tree_grpo.py`) with SVG-derived rewards
   - Basic SVG coherence reward: subassembly existence check
   - Spatial SVG reward: per-step geometry proximity + alignment + connection points
   - From-scratch + spatial: Test Hard 0.281 (best RL result)
   - Warm-start GRPO: Test Hard 0.306 (below BCE baseline)
 - [x] Run four exploration strategies for GRPO:
-  1. High temperature (τ=3~8): helps diversity but not enough
+  1. High temperature (tau=3~8): helps diversity but not enough
   2. Top-K sampling: worse than softmax
-  3. Entropy regularization (λ=0.1): minimal diversity gain
+  3. Entropy regularization (lambda=0.1): minimal diversity gain
   4. From-scratch (random init): best exploration, overfits to train
 - [x] Use per-step simplified SVG geometry as spatial reward signal in GRPO
 
@@ -200,8 +200,8 @@ Warm-start GRPO + spatial: Test Hard 0.254 (worse than BCE 0.332).
 
 ## Next Steps (priority order)
 
-1. **GRPO on all 102 objects** (no train/test split for RL) — should improve generalization
-2. **Stronger BCE→GRPO bridge**: BCE warm-start + high KL penalty (β=0.5~1.0) to stay
+1. **GRPO on all 102 objects** (no train/test split for RL) - should improve generalization
+2. **Stronger BCE->GRPO bridge**: BCE warm-start + high KL penalty (beta=0.5~1.0) to stay
    close to the pretrained policy while exploring locally
 3. **Richer SVG reward**: beyond spatial proximity, use step order and connection
    graph structure from manual steps
@@ -210,24 +210,23 @@ Warm-start GRPO + spatial: Test Hard 0.254 (worse than BCE 0.332).
 
 ## Scripts Index
 
-```
+```text
 scripts/
-├── build/     (7)  数据构建 & 特征提取
-├── train/     (12) 模型训练
-│   ├── train_tree_planner_baseline.py    logistic regression
-│   ├── train_tree_planner_nn.py          flat MLP
-│   ├── train_tree_planner_context.py     context-aware MLP (best)
-│   ├── train_tree_decoder.py             transformer decoder (failed)
-│   ├── train_tree_planner_entropy.py     (deprecated, entropy in context script)
-│   ├── train_tree_grpo.py                GRPO with SVG/spatial rewards
-│   ├── train_grounding_cnn.py            grounding CNN
-│   ├── train_grounding_model.py          geometric grounding
-│   ├── train_grounding_image_model.py    image-feature grounding
-│   ├── train_pairwise_connection_model.py
-│   ├── train_simplified_connection_model.py
-│   └── train_subassembly_candidate_model.py
-├── eval/      (5)  评估 & 推理
-└── export/    (4)  导出 & 分析报告
+|-- build/   (7)  data build and feature extraction
+|-- train/   (12) model training
+|   |-- train_tree_planner_baseline.py    logistic regression
+|   |-- train_tree_planner_nn.py          flat MLP
+|   |-- train_tree_planner_context.py     context-aware MLP (best)
+|   |-- train_tree_decoder.py             transformer decoder (failed)
+|   |-- train_tree_grpo.py                GRPO with SVG/spatial rewards
+|   |-- train_grounding_cnn.py            grounding CNN
+|   |-- train_grounding_model.py          geometric grounding
+|   |-- train_grounding_image_model.py    image-feature grounding
+|   |-- train_pairwise_connection_model.py
+|   |-- train_simplified_connection_model.py
+|   `-- train_subassembly_candidate_model.py
+|-- eval/    (5)  evaluation and inference
+`-- export/  (4)  export and analysis reports
 ```
 
 ## Rules

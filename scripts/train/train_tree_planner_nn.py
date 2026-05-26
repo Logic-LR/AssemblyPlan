@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from eval.evaluate_paper_tree_metrics import average_metrics, build_tree_from_list, eval_tree, step_tree_from_child_specs
 from export.export_tree_predictions_and_equivalence_report import tree_to_list
-from train_tree_planner_baseline import (
+from train.train_tree_planner_baseline import (
     Cluster,
     cluster_token,
     composite_feature_map,

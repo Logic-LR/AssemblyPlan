@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 import numpy as np
 import torch
 
-from evaluate_paper_tree_metrics import Node
+from eval.evaluate_paper_tree_metrics import Node
 from train.train_tree_planner_baseline import plan_tree, sigmoid
 from train.train_tree_planner_nn import MergeMLP, plan_tree_nn
 

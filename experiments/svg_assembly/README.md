@@ -29,37 +29,37 @@ Pillow, tqdm, and matplotlib.
 Generate SVG features:
 
 ```powershell
-python scripts\build_svg_features.py
+python scripts\build\build_svg_features.py
 ```
 
 Build the index:
 
 ```powershell
-python scripts\build_svg_feature_index.py
+python scripts\build\build_svg_feature_index.py
 ```
 
 Run spatial baselines:
 
 ```powershell
-python scripts\eval_spatial_connection_baseline.py
+python scripts\eval\eval_spatial_connection_baseline.py
 ```
 
 Recover mask-derived visual-instance alignment:
 
 ```powershell
-python scripts\analyze_instance_mask_alignment.py
+python scripts\export\analyze_instance_mask_alignment.py
 ```
 
 Train pairwise connection model:
 
 ```powershell
-python scripts\train_pairwise_connection_model.py --align mask
+python scripts\train\train_pairwise_connection_model.py --align mask
 ```
 
 Generate simplified SVG geometry overlays:
 
 ```powershell
-python scripts\simplify_svg_instances.py
+python scripts\build\simplify_svg_instances.py
 ```
 
 The simplification output is written under:
@@ -75,7 +75,7 @@ instance: convex hull, RDP-simplified polygon, and principal axis.
 Render primitive part images from OBJ files:
 
 ```powershell
-python scripts\render_part_images.py --views 4
+python scripts\build\render_part_images.py --views 4
 ```
 
 This writes:
@@ -88,7 +88,7 @@ part_images/part_index.jsonl
 Build grounding samples that link rendered parts to simplified SVG instances:
 
 ```powershell
-python scripts\build_grounding_dataset.py
+python scripts\build\build_grounding_dataset.py
 ```
 
 This writes:
@@ -101,7 +101,7 @@ experiments/svg_assembly/datasets/grounding_summary.json
 Build object-level tree-generation samples:
 
 ```powershell
-python scripts\build_tree_generation_dataset.py
+python scripts\build\build_tree_generation_dataset.py
 ```
 
 This writes:
@@ -119,36 +119,36 @@ geometric-equivalence metadata.
 Train grounding baselines:
 
 ```powershell
-python scripts\train_grounding_model.py --primitive-only
-python scripts\train_grounding_model.py
-python scripts\train_grounding_image_model.py --primitive-only
-python scripts\train_grounding_image_model.py
-python scripts\train_grounding_cnn.py --epochs 25 --output experiments\svg_assembly\reports\grounding_cnn_all_val_report.json --model-output experiments\svg_assembly\reports\grounding_cnn_all_val_model.pt
-python scripts\train_grounding_cnn.py --augment --epochs 25 --output experiments\svg_assembly\reports\grounding_cnn_all_val_aug_report.json --model-output experiments\svg_assembly\reports\grounding_cnn_all_val_aug_model.pt
-python scripts\train_grounding_cnn.py --equivalence-labels --epochs 25 --output experiments\svg_assembly\reports\grounding_cnn_all_equiv_val_report.json --model-output experiments\svg_assembly\reports\grounding_cnn_all_equiv_val_model.pt
-python scripts\train_grounding_cnn.py --equivalence-labels --epochs 20 --max-images 8 --dropout 0.2 --output experiments\svg_assembly\reports\grounding_cnn_improved_val_report.json --model-output experiments\svg_assembly\reports\grounding_cnn_improved_val_model.pt
+python scripts\train\train_grounding_model.py --primitive-only
+python scripts\train\train_grounding_model.py
+python scripts\train\train_grounding_image_model.py --primitive-only
+python scripts\train\train_grounding_image_model.py
+python scripts\train\train_grounding_cnn.py --epochs 25 --output experiments\svg_assembly\reports\grounding_cnn_all_val_report.json --model-output experiments\svg_assembly\reports\grounding_cnn_all_val_model.pt
+python scripts\train\train_grounding_cnn.py --augment --epochs 25 --output experiments\svg_assembly\reports\grounding_cnn_all_val_aug_report.json --model-output experiments\svg_assembly\reports\grounding_cnn_all_val_aug_model.pt
+python scripts\train\train_grounding_cnn.py --equivalence-labels --epochs 25 --output experiments\svg_assembly\reports\grounding_cnn_all_equiv_val_report.json --model-output experiments\svg_assembly\reports\grounding_cnn_all_equiv_val_model.pt
+python scripts\train\train_grounding_cnn.py --equivalence-labels --epochs 20 --max-images 8 --dropout 0.2 --output experiments\svg_assembly\reports\grounding_cnn_improved_val_report.json --model-output experiments\svg_assembly\reports\grounding_cnn_improved_val_model.pt
 ```
 
 Train object-level tree planner baselines:
 
 ```powershell
-python scripts\train_tree_planner_baseline.py --feature-mode geometry --output experiments\svg_assembly\reports\tree_planner_geometry_report.json --model-output experiments\svg_assembly\reports\tree_planner_geometry_model.npz
-python scripts\train_tree_planner_baseline.py --feature-mode svg --output experiments\svg_assembly\reports\tree_planner_svg_report.json --model-output experiments\svg_assembly\reports\tree_planner_svg_model.npz
-python scripts\train_tree_planner_baseline.py --feature-mode svg_geometry --output experiments\svg_assembly\reports\tree_planner_svg_geometry_report.json --model-output experiments\svg_assembly\reports\tree_planner_svg_geometry_model.npz
-python scripts\train_tree_planner_baseline.py --feature-mode svg_geometry_composite --output experiments\svg_assembly\reports\tree_planner_svg_geometry_composite_report.json --model-output experiments\svg_assembly\reports\tree_planner_svg_geometry_composite_model.npz
+python scripts\train\train_tree_planner_baseline.py --feature-mode geometry --output experiments\svg_assembly\reports\tree_planner_geometry_report.json --model-output experiments\svg_assembly\reports\tree_planner_geometry_model.npz
+python scripts\train\train_tree_planner_baseline.py --feature-mode svg --output experiments\svg_assembly\reports\tree_planner_svg_report.json --model-output experiments\svg_assembly\reports\tree_planner_svg_model.npz
+python scripts\train\train_tree_planner_baseline.py --feature-mode svg_geometry --output experiments\svg_assembly\reports\tree_planner_svg_geometry_report.json --model-output experiments\svg_assembly\reports\tree_planner_svg_geometry_model.npz
+python scripts\train\train_tree_planner_baseline.py --feature-mode svg_geometry_composite --output experiments\svg_assembly\reports\tree_planner_svg_geometry_composite_report.json --model-output experiments\svg_assembly\reports\tree_planner_svg_geometry_composite_model.npz
 ```
 
 Train the first neural merge-scorer planner baselines:
 
 ```powershell
-python scripts\train_tree_planner_nn.py --feature-mode geometry --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_geometry_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_geometry_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_geometry_test
-python scripts\train_tree_planner_nn.py --feature-mode svg --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_svg_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_svg_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_test
-python scripts\train_tree_planner_nn.py --feature-mode svg_geometry --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_geometry_test
-python scripts\train_tree_planner_nn.py --feature-mode svg_composite --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_svg_composite_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_svg_composite_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_composite_test
-python scripts\train_tree_planner_nn.py --feature-mode svg_geometry_composite --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_composite_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_composite_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_geometry_composite_test
-python scripts\evaluate_composite_context_decoder.py
-python scripts\train_subassembly_candidate_model.py --feature-mode svg_geometry --epochs 40 --output experiments\svg_assembly\reports\subassembly_candidate_svg_geometry_report.json --model-output experiments\svg_assembly\reports\subassembly_candidate_svg_geometry_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_subassembly_candidates_svg_geometry_test
-python scripts\train_subassembly_candidate_model.py --feature-mode svg_geometry --epochs 60 --train-negatives-per-positive 20 --selection-penalty 0.001 --output experiments\svg_assembly\reports\subassembly_candidate_svg_geometry_neg20_report.json --model-output experiments\svg_assembly\reports\subassembly_candidate_svg_geometry_neg20_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_subassembly_candidates_svg_geometry_neg20_test
+python scripts\train\train_tree_planner_nn.py --feature-mode geometry --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_geometry_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_geometry_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_geometry_test
+python scripts\train\train_tree_planner_nn.py --feature-mode svg --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_svg_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_svg_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_test
+python scripts\train\train_tree_planner_nn.py --feature-mode svg_geometry --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_geometry_test
+python scripts\train\train_tree_planner_nn.py --feature-mode svg_composite --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_svg_composite_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_svg_composite_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_composite_test
+python scripts\train\train_tree_planner_nn.py --feature-mode svg_geometry_composite --epochs 120 --output experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_composite_report.json --model-output experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_composite_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_geometry_composite_test
+python scripts\eval\evaluate_composite_context_decoder.py
+python scripts\train\train_subassembly_candidate_model.py --feature-mode svg_geometry --epochs 40 --output experiments\svg_assembly\reports\subassembly_candidate_svg_geometry_report.json --model-output experiments\svg_assembly\reports\subassembly_candidate_svg_geometry_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_subassembly_candidates_svg_geometry_test
+python scripts\train\train_subassembly_candidate_model.py --feature-mode svg_geometry --epochs 60 --train-negatives-per-positive 20 --selection-penalty 0.001 --output experiments\svg_assembly\reports\subassembly_candidate_svg_geometry_neg20_report.json --model-output experiments\svg_assembly\reports\subassembly_candidate_svg_geometry_neg20_model.pt --pred-output-dir experiments\svg_assembly\tree_planner_predictions_subassembly_candidates_svg_geometry_neg20_test
 ```
 
 The neural planner uses an MLP merge scorer, but it still decodes by thresholded
@@ -167,15 +167,15 @@ precision-oriented candidate generators can be compared.
 Export tree-planner predictions:
 
 ```powershell
-python scripts\export_tree_planner_predictions.py --model experiments\svg_assembly\reports\tree_planner_svg_model.npz --split test --output-dir experiments\svg_assembly\tree_planner_predictions_svg_test --output-report experiments\svg_assembly\reports\tree_planner_svg_predictions_test_report.json
-python scripts\export_tree_planner_predictions.py --model experiments\svg_assembly\reports\tree_planner_svg_geometry_model.npz --split test --output-dir experiments\svg_assembly\tree_planner_predictions_svg_geometry_test --output-report experiments\svg_assembly\reports\tree_planner_svg_geometry_predictions_test_report.json
-python scripts\export_tree_planner_predictions.py --model experiments\svg_assembly\reports\tree_planner_svg_geometry_composite_model.npz --split test --output-dir experiments\svg_assembly\tree_planner_predictions_svg_geometry_composite_test --output-report experiments\svg_assembly\reports\tree_planner_svg_geometry_composite_predictions_test_report.json
+python scripts\export\export_tree_planner_predictions.py --model experiments\svg_assembly\reports\tree_planner_svg_model.npz --split test --output-dir experiments\svg_assembly\tree_planner_predictions_svg_test --output-report experiments\svg_assembly\reports\tree_planner_svg_predictions_test_report.json
+python scripts\export\export_tree_planner_predictions.py --model experiments\svg_assembly\reports\tree_planner_svg_geometry_model.npz --split test --output-dir experiments\svg_assembly\tree_planner_predictions_svg_geometry_test --output-report experiments\svg_assembly\reports\tree_planner_svg_geometry_predictions_test_report.json
+python scripts\export\export_tree_planner_predictions.py --model experiments\svg_assembly\reports\tree_planner_svg_geometry_composite_model.npz --split test --output-dir experiments\svg_assembly\tree_planner_predictions_svg_geometry_composite_test --output-report experiments\svg_assembly\reports\tree_planner_svg_geometry_composite_predictions_test_report.json
 ```
 
 Run planner inference from observed or grounded part tokens:
 
 ```powershell
-python scripts\run_tree_planner_inference.py --input observed_part_tokens.json --output predicted_assembly_tree.json --model experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_model.pt
+python scripts\eval\run_tree_planner_inference.py --input observed_part_tokens.json --output predicted_assembly_tree.json --model experiments\svg_assembly\reports\tree_planner_nn_svg_geometry_model.pt
 ```
 
 The input can be a list of part-token objects, or an object with
@@ -187,31 +187,31 @@ tree plus an internal-to-input part-id mapping.
 Build an HTML error viewer for planner failures:
 
 ```powershell
-python scripts\build_tree_planner_error_viewer.py --prediction-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_geometry_test --output-html experiments\svg_assembly\reports\tree_planner_error_viewer_nn_svg_geometry.html --output-json experiments\svg_assembly\reports\tree_planner_error_viewer_nn_svg_geometry.json
-python scripts\build_tree_planner_error_viewer.py --prediction-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_geometry_composite_test --output-html experiments\svg_assembly\reports\tree_planner_error_viewer_nn_svg_geometry_composite.html --output-json experiments\svg_assembly\reports\tree_planner_error_viewer_nn_svg_geometry_composite.json
-python scripts\build_tree_planner_error_viewer.py --prediction-dir experiments\svg_assembly\tree_planner_predictions_subassembly_candidates_svg_geometry_test --output-html experiments\svg_assembly\reports\tree_planner_error_viewer_subassembly_candidates_svg_geometry.html --output-json experiments\svg_assembly\reports\tree_planner_error_viewer_subassembly_candidates_svg_geometry.json
-python scripts\build_tree_planner_error_viewer.py --prediction-dir experiments\svg_assembly\tree_planner_predictions_subassembly_candidates_svg_geometry_neg20_test --output-html experiments\svg_assembly\reports\tree_planner_error_viewer_subassembly_candidates_svg_geometry_neg20.html --output-json experiments\svg_assembly\reports\tree_planner_error_viewer_subassembly_candidates_svg_geometry_neg20.json
+python scripts\build\build_tree_planner_error_viewer.py --prediction-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_geometry_test --output-html experiments\svg_assembly\reports\tree_planner_error_viewer_nn_svg_geometry.html --output-json experiments\svg_assembly\reports\tree_planner_error_viewer_nn_svg_geometry.json
+python scripts\build\build_tree_planner_error_viewer.py --prediction-dir experiments\svg_assembly\tree_planner_predictions_nn_svg_geometry_composite_test --output-html experiments\svg_assembly\reports\tree_planner_error_viewer_nn_svg_geometry_composite.html --output-json experiments\svg_assembly\reports\tree_planner_error_viewer_nn_svg_geometry_composite.json
+python scripts\build\build_tree_planner_error_viewer.py --prediction-dir experiments\svg_assembly\tree_planner_predictions_subassembly_candidates_svg_geometry_test --output-html experiments\svg_assembly\reports\tree_planner_error_viewer_subassembly_candidates_svg_geometry.html --output-json experiments\svg_assembly\reports\tree_planner_error_viewer_subassembly_candidates_svg_geometry.json
+python scripts\build\build_tree_planner_error_viewer.py --prediction-dir experiments\svg_assembly\tree_planner_predictions_subassembly_candidates_svg_geometry_neg20_test --output-html experiments\svg_assembly\reports\tree_planner_error_viewer_subassembly_candidates_svg_geometry_neg20.html --output-json experiments\svg_assembly\reports\tree_planner_error_viewer_subassembly_candidates_svg_geometry_neg20.json
 ```
 
 Summarize all available reports:
 
 ```powershell
-python scripts\summarize_svg_assembly_experiments.py
+python scripts\export\summarize_svg_assembly_experiments.py
 ```
 
 Run the current end-to-end diagnostic:
 
 ```powershell
-python scripts\run_end_to_end_diagnostic.py
-python scripts\run_end_to_end_diagnostic.py --split all --output experiments\svg_assembly\reports\end_to_end_diagnostic_all_report.json
-python scripts\run_end_to_end_diagnostic.py --grounding-model experiments\svg_assembly\reports\grounding_cnn_all_equiv_val_model.pt --split test --output experiments\svg_assembly\reports\end_to_end_diagnostic_equiv_test_report.json
-python scripts\run_end_to_end_diagnostic.py --grounding-model experiments\svg_assembly\reports\grounding_cnn_all_equiv_val_model.pt --split all --output experiments\svg_assembly\reports\end_to_end_diagnostic_equiv_all_report.json
-python scripts\run_end_to_end_diagnostic.py --grounding-model experiments\svg_assembly\reports\grounding_cnn_improved_val_model.pt --split test --output experiments\svg_assembly\reports\end_to_end_diagnostic_improved_report.json
-python scripts\evaluate_paper_tree_metrics.py
-python scripts\export_tree_predictions_and_equivalence_report.py
-python scripts\export_tree_predictions_and_equivalence_report.py --diagnostic-report experiments\svg_assembly\reports\end_to_end_diagnostic_report.json --output-report experiments\svg_assembly\reports\equivalence_test_report.json --output-dir experiments\svg_assembly\predicted_assembly_trees_test
-python scripts\export_tree_predictions_and_equivalence_report.py --diagnostic-report experiments\svg_assembly\reports\end_to_end_diagnostic_improved_report.json --output-report experiments\svg_assembly\reports\equivalence_test_improved_report.json --output-dir experiments\svg_assembly\predicted_assembly_trees_improved_test
-python scripts\export_tree_predictions_and_equivalence_report.py --diagnostic-report experiments\svg_assembly\reports\end_to_end_diagnostic_equiv_all_report.json --output-report experiments\svg_assembly\reports\equivalence_and_tree_export_equiv_model_report.json --output-dir experiments\svg_assembly\predicted_assembly_trees_equiv
+python scripts\eval\run_end_to_end_diagnostic.py
+python scripts\eval\run_end_to_end_diagnostic.py --split all --output experiments\svg_assembly\reports\end_to_end_diagnostic_all_report.json
+python scripts\eval\run_end_to_end_diagnostic.py --grounding-model experiments\svg_assembly\reports\grounding_cnn_all_equiv_val_model.pt --split test --output experiments\svg_assembly\reports\end_to_end_diagnostic_equiv_test_report.json
+python scripts\eval\run_end_to_end_diagnostic.py --grounding-model experiments\svg_assembly\reports\grounding_cnn_all_equiv_val_model.pt --split all --output experiments\svg_assembly\reports\end_to_end_diagnostic_equiv_all_report.json
+python scripts\eval\run_end_to_end_diagnostic.py --grounding-model experiments\svg_assembly\reports\grounding_cnn_improved_val_model.pt --split test --output experiments\svg_assembly\reports\end_to_end_diagnostic_improved_report.json
+python scripts\eval\evaluate_paper_tree_metrics.py
+python scripts\export\export_tree_predictions_and_equivalence_report.py
+python scripts\export\export_tree_predictions_and_equivalence_report.py --diagnostic-report experiments\svg_assembly\reports\end_to_end_diagnostic_report.json --output-report experiments\svg_assembly\reports\equivalence_test_report.json --output-dir experiments\svg_assembly\predicted_assembly_trees_test
+python scripts\export\export_tree_predictions_and_equivalence_report.py --diagnostic-report experiments\svg_assembly\reports\end_to_end_diagnostic_improved_report.json --output-report experiments\svg_assembly\reports\equivalence_test_improved_report.json --output-dir experiments\svg_assembly\predicted_assembly_trees_improved_test
+python scripts\export\export_tree_predictions_and_equivalence_report.py --diagnostic-report experiments\svg_assembly\reports\end_to_end_diagnostic_equiv_all_report.json --output-report experiments\svg_assembly\reports\equivalence_and_tree_export_equiv_model_report.json --output-dir experiments\svg_assembly\predicted_assembly_trees_equiv
 ```
 
 This writes:
@@ -357,8 +357,8 @@ represented by the set of primitive parts that make up the subassembly.
 Train the first geometric grounding baseline:
 
 ```powershell
-python scripts\train_grounding_model.py --primitive-only
-python scripts\train_grounding_model.py
+python scripts\train\train_grounding_model.py --primitive-only
+python scripts\train\train_grounding_model.py
 ```
 
 Current geometric-only grounding is intentionally modest: on the test split,
@@ -370,8 +370,8 @@ should add rendered part-image features or stronger 3D shape features.
 Rendered-image silhouette features were also tested:
 
 ```powershell
-python scripts\train_grounding_image_model.py --primitive-only
-python scripts\train_grounding_image_model.py
+python scripts\train\train_grounding_image_model.py --primitive-only
+python scripts\train\train_grounding_image_model.py
 ```
 
 The current linear image-feature model does not improve all-sample grounding.

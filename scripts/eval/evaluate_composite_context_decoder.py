@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
-from evaluate_paper_tree_metrics import (
+from eval.evaluate_paper_tree_metrics import (
     average_metrics,
     build_tree_from_list,
     eval_tree,
