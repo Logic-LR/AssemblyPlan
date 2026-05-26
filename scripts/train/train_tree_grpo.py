@@ -146,6 +146,241 @@ def gt_f1_reward(pred_tree: Node, gt_tree: Node) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Spatial SVG reward: uses per-step simplified SVG geometry
+# ---------------------------------------------------------------------------
+
+
+def _load_step_svg_data(record: Dict[str, Any]) -> Dict[int, List[Dict[str, Any]]]:
+    """Load simplified SVG instances for each step of an object.
+
+    Returns {step_id: [instance_dict, ...]}.
+    """
+    from pathlib import Path
+
+    category = record["category"]
+    name = record["name"]
+    base = Path("experiments/svg_assembly/simplified_svg") / category / name
+
+    step_data: Dict[int, List[Dict[str, Any]]] = {}
+    if not base.exists():
+        return step_data
+
+    for step_dir in sorted(base.iterdir()):
+        if not step_dir.is_dir():
+            continue
+        try:
+            step_id = int(step_dir.name.replace("step_", ""))
+        except ValueError:
+            continue
+        si_path = step_dir / "simplified_instances.json"
+        if not si_path.exists():
+            continue
+        with open(si_path, encoding="utf-8") as f:
+            full = json.load(f)
+        instances = full.get("instances") or []
+        if isinstance(instances, dict):
+            instances = list(instances.values())
+        step_data[step_id] = instances
+
+    return step_data
+
+
+def _part_to_svg_color(record: Dict[str, Any]) -> Dict[int, str]:
+    """Map part_id -> svg_instance_id from svg_examples in part tokens."""
+    mapping: Dict[int, str] = {}
+    for token in record.get("part_tokens") or []:
+        pid = int(token["part_id"])
+        examples = token.get("svg_examples") or []
+        if examples:
+            inst_id = examples[0].get("svg_instance_id", "")
+            if inst_id:
+                mapping[pid] = str(inst_id).lower()
+    return mapping
+
+
+def spatial_svg_reward(
+    pred_tree: Node,
+    record: Dict[str, Any],
+    step_svg_cache: Dict[str, Dict[int, List[Dict[str, Any]]]] | None = None,
+) -> float:
+    """Compute spatial compatibility reward from step SVG geometry.
+
+    For each non-leaf node in the predicted tree:
+      - Find the step where the merged parts first appear together
+      - Check spatial proximity, axis alignment, connection evidence
+      - Score 0-1 per merge, average across all merges.
+    """
+    nodes = nonleaf_nodes(pred_tree)
+    if not nodes:
+        return 0.0
+
+    # Load SVG data (cached)
+    cache_key = f"{record['category']}/{record['name']}"
+    if step_svg_cache is not None and cache_key in step_svg_cache:
+        step_data = step_svg_cache[cache_key]
+    else:
+        step_data = _load_step_svg_data(record)
+        if step_svg_cache is not None:
+            step_svg_cache[cache_key] = step_data
+
+    if not step_data:
+        return 0.0
+
+    # Build part→color mapping
+    part_color = _part_to_svg_color(record)
+
+    # Build step → part_sets
+    step_part_sets: Dict[int, Set[PartSet]] = {}
+    for step in record.get("manual_step_groups") or []:
+        sid = step["step_id"]
+        parts_list = [_parse_part_set(p) for p in step.get("parts") or []]
+        step_part_sets[sid] = set(parts_list)
+
+    scores: List[float] = []
+
+    for node in nodes:
+        if len(node.children) < 2:
+            continue
+
+        # For each pair of children, compute spatial score
+        child_parts = [child.parts for child in node.children]
+        pair_scores: List[float] = []
+
+        for i in range(len(child_parts)):
+            for j in range(i + 1, len(child_parts)):
+                a_parts = child_parts[i]
+                b_parts = child_parts[j]
+                merged = a_parts | b_parts
+
+                # Find the step where merged first appears
+                relevant_step = None
+                for sid in sorted(step_part_sets.keys()):
+                    if merged in step_part_sets[sid]:
+                        relevant_step = sid
+                        break
+
+                if relevant_step is None or relevant_step not in step_data:
+                    pair_scores.append(0.0)
+                    continue
+
+                svg_instances = step_data[relevant_step]
+
+                # Get colors for parts in a_parts and b_parts
+                a_colors = set()
+                for p in a_parts:
+                    c = part_color.get(p)
+                    if c:
+                        a_colors.add(c.lower())
+
+                b_colors = set()
+                for p in b_parts:
+                    c = part_color.get(p)
+                    if c:
+                        b_colors.add(c.lower())
+
+                if not a_colors or not b_colors:
+                    pair_scores.append(0.0)
+                    continue
+
+                # Find matching SVG instances
+                a_insts = [
+                    inst
+                    for inst in svg_instances
+                    if str(inst.get("id", "")).lower() in a_colors
+                ]
+                b_insts = [
+                    inst
+                    for inst in svg_instances
+                    if str(inst.get("id", "")).lower() in b_colors
+                ]
+
+                if not a_insts or not b_insts:
+                    pair_scores.append(0.0)
+                    continue
+
+                # --- Spatial features ---
+                # Use first matching instance per cluster (could aggregate)
+                ia = a_insts[0]
+                ib = b_insts[0]
+
+                ca = np.asarray(ia.get("center", [0, 0]), dtype=np.float32)
+                cb = np.asarray(ib.get("center", [0, 0]), dtype=np.float32)
+
+                # 1. Proximity score
+                dist = float(np.linalg.norm(cb - ca))
+                # Normalize by average axis length
+                alen_a = float(ia.get("axis_length", 100))
+                alen_b = float(ib.get("axis_length", 100))
+                avg_len = max((alen_a + alen_b) / 2, 1.0)
+                proximity = float(np.exp(-dist / (avg_len * 1.5)))
+
+                # 2. Axis alignment score
+                axis_a = np.asarray(
+                    [
+                        ia.get("principal_axis", [[0, 0], [1, 0]])[1],
+                        ia.get("principal_axis", [[0, 0], [1, 0]])[0],
+                    ],
+                    dtype=np.float32,
+                )
+                axis_b = np.asarray(
+                    [
+                        ib.get("principal_axis", [[0, 0], [1, 0]])[1],
+                        ib.get("principal_axis", [[0, 0], [1, 0]])[0],
+                    ],
+                    dtype=np.float32,
+                )
+                dir_a = axis_a[0] - axis_a[1]
+                dir_b = axis_b[0] - axis_b[1]
+                norm_a = float(np.linalg.norm(dir_a)) or 1.0
+                norm_b = float(np.linalg.norm(dir_b)) or 1.0
+                dir_a = dir_a / norm_a
+                dir_b = dir_b / norm_b
+                alignment = float(abs(np.dot(dir_a, dir_b)))
+
+                # 3. Connection candidate proximity
+                conn_score = 0.0
+                ca_conn = ia.get("connection_candidates") or {}
+                cb_conn = ib.get("connection_candidates") or {}
+                all_a_points: List[np.ndarray] = []
+                all_b_points: List[np.ndarray] = []
+                for key in ca_conn:
+                    pts = ca_conn[key]
+                    if isinstance(pts, list) and pts:
+                        if isinstance(pts[0], (int, float)):
+                            all_a_points.append(np.asarray(pts, dtype=np.float32))
+                        elif isinstance(pts[0], list):
+                            for p in pts:
+                                all_a_points.append(np.asarray(p, dtype=np.float32))
+                for key in cb_conn:
+                    pts = cb_conn[key]
+                    if isinstance(pts, list) and pts:
+                        if isinstance(pts[0], (int, float)):
+                            all_b_points.append(np.asarray(pts, dtype=np.float32))
+                        elif isinstance(pts[0], list):
+                            for p in pts:
+                                all_b_points.append(np.asarray(p, dtype=np.float32))
+                if all_a_points and all_b_points:
+                    min_conn_dist = float("inf")
+                    for pa in all_a_points:
+                        for pb in all_b_points:
+                            d = float(np.linalg.norm(pb - pa))
+                            if d < min_conn_dist:
+                                min_conn_dist = d
+                    conn_score = float(np.exp(-min_conn_dist / (avg_len * 1.0)))
+
+                # Combine: weighted average
+                pair_score = 0.35 * proximity + 0.25 * alignment + 0.40 * conn_score
+                pair_scores.append(pair_score)
+
+        if pair_scores:
+            scores.append(float(np.mean(pair_scores)))
+
+    if not scores:
+        return 0.0
+    return float(np.mean(scores))
+
+
+# ---------------------------------------------------------------------------
 # Sampling
 # ---------------------------------------------------------------------------
 
@@ -300,12 +535,18 @@ def grpo_train_one_epoch(
                 sample_tree(record, mode, model, mean, std, args.temperature, args.top_k_sample, device)
             )
 
-        # Compute rewards
+        # Compute rewards (now with spatial SVG)
         rewards = []
         for tree, _, _ in samples:
             r_svg = svg_reward(tree, subassemblies)
+            r_spatial = spatial_svg_reward(tree, record)
             r_gt = gt_f1_reward(tree, gt_tree)
-            r = args.svg_reward_weight * r_svg + (1.0 - args.svg_reward_weight) * r_gt
+            # Combine: SVG coherence + spatial geometry + GT F1
+            r = (
+                0.2 * r_svg
+                + 0.3 * r_spatial
+                + 0.5 * r_gt
+            )
             rewards.append(r)
 
         all_rewards.extend(rewards)
