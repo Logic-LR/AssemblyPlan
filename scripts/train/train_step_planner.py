@@ -26,7 +26,7 @@ from eval.evaluate_paper_tree_metrics import (
     step_tree_from_child_specs, Node,
 )
 from train.train_tree_planner_baseline import (
-    Cluster, cluster_token, split_records,
+    Cluster, cluster_token, connected_components, split_records,
 )
 from train.train_tree_grpo import (
     _load_step_svg_data, _part_to_svg_color, spatial_svg_reward, _parse_part_set,
@@ -241,12 +241,11 @@ def _build_step_spatial_map(record: dict, clusters: List[Cluster],
 
 
 def _find_matching_step(record: dict, parent_parts: frozenset) -> int:
-    """Find which manual step first contains parent as an exact part group."""
-    for sg in record.get("manual_step_groups") or []:
-        for p_str in sg.get("parts") or []:
-            if _parse_part_set(p_str) == parent_parts:
-                return sg["step_id"]
-    # Fallback: find first step where ALL parts of parent appear together
+    """Find which manual step produces this parent cluster.
+
+    The parent is the OUTPUT of a step. Look for the first step where
+    ALL parts of parent appear (individually or as sub-groups).
+    """
     parent_set = set(parent_parts)
     for sg in record.get("manual_step_groups") or []:
         all_parts_in_step: Set[int] = set()
@@ -330,11 +329,14 @@ def _train_one_epoch(model, optimizer, records, step_svg_cache, device, args):
 
 @torch.no_grad()
 def predict_tree(record, model, device, num_samples=20, temperature=0.6):
-    """Sample multiple trees, select best via SVG reward."""
+    """Sample trees via per-step CC grouping, select best via SVG reward.
+
+    At each step: model scores all pairs → threshold pairs → CC grouping
+    → merge each component. Multiple pairs can merge per step = n-ary support.
+    """
     num_parts = int(record["num_parts"])
     step_data = _load_step_svg_data(record)
     part_feats = _part_features(record, step_data)
-    # Build subassemblies for SVG reward
     subassemblies = set()
     for sg in record.get("manual_step_groups") or []:
         for p_str in sg.get("parts") or []:
@@ -351,25 +353,41 @@ def predict_tree(record, model, device, num_samples=20, temperature=0.6):
             clusters = sorted(current, key=lambda c: (len(c), tuple(sorted(c))))
             scores, new_hidden = model(clusters, part_feats, gru_hidden, {})
 
-            # Temperature sampling
-            scaled = scores / max(temperature, 1e-6)
-            probs = torch.softmax(scaled, dim=0).cpu().numpy()
-            chosen = int(np.random.choice(len(probs), p=probs))
+            probs = torch.sigmoid(scores).cpu().numpy()
 
-            # Decode pair index
+            # Sample threshold: slightly perturb to get diverse trees
+            thresh = 0.5 + 0.1 * (np.random.rand() - 0.5)
+
+            # Find edges above threshold
             M = len(clusters)
-            pi = pj = 0; found = False
+            edges = []
             idx = 0
             for i in range(M):
                 for j in range(i + 1, M):
-                    if idx == chosen: pi, pj = i, j; found = True; break
+                    if probs[idx] >= thresh:
+                        edges.append((clusters[i], clusters[j]))
                     idx += 1
-                if found: break
 
-            a, b = clusters[pi], clusters[pj]
-            merges.append([cluster_token(a), cluster_token(b)])
-            current = {c for k, c in enumerate(clusters) if k != pi and k != pj}
-            current.add(a | b)
+            if not edges:
+                # No merges → pick highest-scoring pair as fallback
+                best_idx = int(np.argmax(probs))
+                idx = 0; found = False
+                for i in range(M):
+                    for j in range(i + 1, M):
+                        if idx == best_idx: pi, pj = i, j; found = True; break
+                        idx += 1
+                    if found: break
+                edges.append((clusters[pi], clusters[pj]))
+
+            # CC grouping
+            comps = connected_components(clusters, edges)
+            for comp in comps:
+                if len(comp) >= 2:
+                    parent = frozenset().union(*comp)
+                    merges.append([cluster_token(c) for c in sorted(comp, key=lambda x: (len(x), tuple(sorted(x))))])
+                    for c in comp: current.discard(c)
+                    current.add(parent)
+
             gru_hidden = new_hidden.detach()
 
         tree = step_tree_from_child_specs(merges, num_parts)
