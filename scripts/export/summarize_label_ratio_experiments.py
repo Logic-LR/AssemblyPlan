@@ -78,8 +78,9 @@ def infer_method(report: Dict[str, Any], path: Path) -> str:
                 "spatial_svg": nested(report, "config", "reward_spatial_svg"),
                 "gt_f1": nested(report, "config", "reward_gt_f1"),
             }
+        init = "scratch" if nested(report, "config", "from_scratch") else "warm"
         return (
-            "GRPO "
+            f"GRPO {init} "
             f"gt={fmt(weights.get('gt_f1'), 2)} "
             f"svg={fmt(weights.get('svg_coherence'), 2)} "
             f"spatial={fmt(weights.get('spatial_svg'), 2)}"
@@ -94,6 +95,7 @@ def row_from_report(path: Path) -> Dict[str, Any]:
         "label_ratio": infer_label_ratio(report),
         "method": infer_method(report, path),
         "feature_mode": report.get("feature_mode"),
+        "seed": nested(report, "config", "seed"),
         "fit_objects": nested(report, "splits", "fit_objects"),
         "labeled_fit_objects": nested(report, "splits", "labeled_fit_objects"),
         "gt_reward_objects": nested(report, "splits", "gt_reward_objects"),
@@ -112,6 +114,7 @@ def markdown_table(rows: List[Dict[str, Any]]) -> str:
         "label_ratio",
         "method",
         "feature_mode",
+        "seed",
         "labeled_fit_objects",
         "gt_reward_objects",
         "val_hard_f1",

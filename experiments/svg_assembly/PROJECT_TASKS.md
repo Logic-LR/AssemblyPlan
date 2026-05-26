@@ -1,6 +1,6 @@
 # SVG-Enhanced Assembly Tree Generation Tasks
 
-Last updated: 2026-05-26 (label-ratio matrix and no-manual comparison complete)
+Last updated: 2026-05-26 (SVG-only GRPO ablation complete)
 
 ## Task Definition
 
@@ -191,6 +191,33 @@ Interpretation:
 - At 100% labels, `svg_geometry_composite` BCE reaches 0.332 Test Hard, while no-manual `svg_geometry` BCE reaches 0.108.
 - Current strong results are therefore not just "raw SVG geometry works"; they depend heavily on manual-step subassembly context.
 
+### 9. SVG-only GRPO separates raw SVG from manual-step composite signal
+
+Pilot setting: GT reward disabled (`--reward-gt-f1 0`), SVG coherence/spatial reward only.
+
+| Method | Feature mode | Test Simple | Test Hard | All Hard |
+|---|---|---:|---:|---:|
+| GRPO scratch, SVG-only reward | `svg_geometry` | 0.427 | 0.057 | 0.210 |
+| GRPO warm 10%, SVG-only reward | `svg_geometry` | 0.340 | 0.059 | 0.157 |
+| GRPO scratch, SVG-only reward | `svg_geometry_composite` | 0.609 | 0.423 | 0.419 |
+| GRPO warm 10%, SVG-only reward | `svg_geometry_composite` | 0.476 | 0.233 | 0.339 |
+
+Interpretation:
+- Pure raw SVG/geometry reward is not enough: `svg_geometry` stays near 0.06 Test Hard.
+- With manual-derived composite context available, SVG-only GRPO from scratch reaches 0.423 Test Hard, above the 100% BCE context baseline (0.332).
+- This is a strong but delicate result: it supports "manual-step SVGs contain usable assembly structure", not "real part images alone solve assembly trees".
+- The warm-start result is weaker than scratch, consistent with earlier GRPO observations that BCE policies can be too polarized for exploration.
+
+Multi-seed check for `svg_geometry_composite` scratch SVG-only GRPO:
+
+| Seed | Test Simple | Test Hard | All Hard |
+|---:|---:|---:|---:|
+| 0 | 0.609 | 0.423 | 0.419 |
+| 1 | 0.527 | 0.365 | 0.418 |
+| 2 | 0.504 | 0.250 | 0.331 |
+
+Average Test Hard across seeds: ~0.346. The result remains promising but has high variance, so it should be reported as an early ablation unless repeated with fixed splits / more seeds.
+
 ---
 
 ## Completed
@@ -249,13 +276,20 @@ Interpretation:
 - [x] Run no-manual `svg_geometry` BCE label-ratio comparison
   - BCE context MLP at 10/25/50/100% labels
   - Summary: `experiments/svg_assembly/reports/label_ratio_sg_bce_summary.md`
+- [x] Run SVG-only weak GRPO ablations
+  - `--reward-gt-f1 0 --reward-svg-coherence 0.4 --reward-spatial-svg 0.6 --gt-label-ratio 0`
+  - Compared from-scratch vs 10% BCE warm-start in `svg_geometry` and `svg_geometry_composite`
+  - Summary: `experiments/svg_assembly/reports/svg_only_grpo_summary.md`
+- [x] Validate `svg_geometry_composite` scratch SVG-only GRPO across seeds 0/1/2
+  - Test Hard F1: 0.423 / 0.365 / 0.250
+  - Average Test Hard F1: ~0.346
 
 ## Active Todo
 
-- [ ] Run SVG-only weak GRPO ablations
-  - Suggested: `--reward-gt-f1 0 --reward-svg-coherence 0.4 --reward-spatial-svg 0.6 --gt-label-ratio 0`
-  - Compare from-scratch vs BCE warm-start in `svg_geometry` and `svg_geometry_composite`
-- [ ] Compare whether SVG/spatial reward helps most when GT tree labels are scarce
+- [ ] Repeat key runs with fixed split and varied model seeds
+  - Current `--seed` changes both split and model randomness
+  - Add separate split/model seed controls if this becomes a paper table
+- [ ] Compare whether SVG/spatial reward helps most when GT tree labels are scarce across seeds
 - [ ] Combine BCE pretraining + GRPO with strong KL constraint to preserve generalization
 - [ ] Test all-object weak GRPO as an ablation, but keep the held-out test split for paper metrics
 - [ ] Learn a proper tree decoder (sequence/set-to-tree) instead of greedy connected-components
@@ -265,7 +299,7 @@ Interpretation:
 
 ## Next Steps (priority order)
 
-1. **Run SVG-only weak GRPO ablations** to separate manual tree labels from SVG-derived rewards
+1. **Validate SVG-only GRPO across seeds** before making it the headline result
 2. **Check reward usefulness under scarce labels across seeds**: repeat 10%/25% with 2-3 label seeds
 3. **Stronger BCE->GRPO bridge**: BCE warm-start + high KL penalty (beta=0.5~1.0) to stay
    close to the pretrained policy while exploring locally
