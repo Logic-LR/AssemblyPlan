@@ -39,7 +39,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--dataset", default="experiments/svg_assembly/datasets/tree_generation_dataset.json")
     p.add_argument("--epochs", type=int, default=200)
-    p.add_argument("--hidden-dim", type=int, default=128)
+    p.add_argument("--hidden-dim", type=int, default=256)
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--weight-decay", type=float, default=1e-4)
