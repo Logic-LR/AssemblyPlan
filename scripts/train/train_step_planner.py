@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Step-conditioned sequential assembly tree planner.
 
-Unlike the flat pair scorer, this model:
-  - Processes merge steps sequentially (not pooled together)
-  - Uses per-step simplified SVG spatial context during training
-  - Tracks progress with a GRU hidden state
-  - At inference, samples multiple trees and selects the best via SVG reward
+Training: 393 manual steps, each with explicit connection labels from the SVG.
+Inference: GRU tracks state, predicts connections → CC grouping → merge.
 """
 
 from __future__ import annotations
@@ -23,15 +20,14 @@ from torch import nn
 
 from eval.evaluate_paper_tree_metrics import (
     average_metrics, build_tree_from_list, eval_tree, nonleaf_nodes,
-    step_tree_from_child_specs, Node,
+    step_tree_from_child_specs,
 )
 from train.train_tree_planner_baseline import (
     Cluster, cluster_token, connected_components, split_records,
 )
 from train.train_tree_grpo import (
-    _load_step_svg_data, _part_to_svg_color, spatial_svg_reward, _parse_part_set,
+    _load_step_svg_data, _part_to_svg_color, _parse_part_set,
 )
-
 
 # ─── CLI ────────────────────────────────────────────────────────────────────
 
@@ -48,102 +44,58 @@ def parse_args():
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--output", default="experiments/svg_assembly/reports/step_planner_report.json")
     p.add_argument("--model-output", default="experiments/svg_assembly/reports/step_planner_model.pt")
-    p.add_argument("--pred-output-dir", default="experiments/svg_assembly/step_planner_predictions_test")
     return p.parse_args()
 
 
-# ─── Feature Extraction ─────────────────────────────────────────────────────
-
-SHAPE_TYPES = ["elongated_bar", "plate_like", "irregular", "point_or_line"]
-
-
-def _part_shape_idx(token: dict) -> int:
-    dist = token.get("shape_distribution") or [0.25] * 4
-    return int(np.argmax(dist))
-
-
-def _svg_instance_features(inst: dict) -> np.ndarray:
-    """Spatial features from one simplified SVG instance. Returns 9-dim."""
-    center = np.asarray(inst.get("center", [0, 0]), dtype=np.float32)
-    axis = np.asarray(inst.get("principal_axis", [[0, 0], [1, 0]]), dtype=np.float32)
-    axis_vec = axis[1] - axis[0]
-    axis_len = float(np.linalg.norm(axis_vec)) or 1.0
-    axis_vec = axis_vec / axis_len
-    bbox = np.asarray(inst.get("bbox", [0, 0, 1, 1]), dtype=np.float32)
-    return np.concatenate([
-        center / 200.0,
-        axis_vec,
-        np.asarray([float(inst.get("axis_length", 100)) / 200.0], dtype=np.float32),
-        np.asarray([float(inst.get("axis_width", 50)) / 200.0], dtype=np.float32),
-        np.asarray([float(inst.get("elongation", 1.0)) / 4.0], dtype=np.float32),
-        (bbox[2:] - bbox[:2]) / 400.0,
-    ]).astype(np.float32)
-
+# ─── Per-Part Features ──────────────────────────────────────────────────────
 
 def _part_features(record: dict, step_svg_data: dict | None = None) -> Dict[int, np.ndarray]:
-    """Build per-part features: shape_idx(1) + svg_spatial(9) = 10 dims."""
+    """Per-part: shape_idx(1) + svg_geometry(9) = 10 dims."""
     feats: Dict[int, np.ndarray] = {}
     has_svg = step_svg_data is not None and len(step_svg_data) > 0
     part_color = _part_to_svg_color(record) if has_svg else {}
     for token in record.get("part_tokens") or []:
         pid = int(token["part_id"])
-        shape_idx = float(_part_shape_idx(token))
+        shape_idx = float(np.argmax(token.get("shape_distribution") or [0.25]*4))
+        svg_feat = np.zeros(8, dtype=np.float32)
         if has_svg:
             color = part_color.get(pid)
-            svg_feat = np.zeros(9, dtype=np.float32)
             if color:
                 for instances in step_svg_data.values():
                     for inst in instances:
                         if str(inst.get("id", "")).lower() == color:
-                            svg_feat = _svg_instance_features(inst)
+                            c = np.asarray(inst.get("center", [0,0]), dtype=np.float32)/200.0
+                            ax = np.asarray(inst.get("principal_axis", [[0,0],[1,0]]), dtype=np.float32)
+                            axv = ax[1]-ax[0]; an = float(np.linalg.norm(axv)) or 1.0; axv = axv/an
+                            svg_feat = np.concatenate([
+                                c, axv,
+                                [float(inst.get("axis_length",100))/200.0,
+                                 float(inst.get("axis_width",50))/200.0,
+                                 float(inst.get("elongation",1.0))/4.0,
+                                 float(np.linalg.norm(np.asarray(inst.get("bbox",[0,0,1,1]),dtype=np.float32)[2:]-np.asarray(inst.get("bbox",[0,0,1,1]),dtype=np.float32)[:2]))/400.0]
+                            ]).astype(np.float32)
                             break
-            feats[pid] = np.concatenate([
-                np.asarray([shape_idx], dtype=np.float32), svg_feat
-            ]).astype(np.float32)
-        else:
-            feats[pid] = np.asarray([shape_idx] + [0.0] * 9, dtype=np.float32)
+        feats[pid] = np.concatenate([[shape_idx], svg_feat]).astype(np.float32)
     return feats
-
-
-def _pair_spatial(a_inst: dict | None, b_inst: dict | None) -> np.ndarray:
-    """Spatial relationship between two SVG instances. Returns 5-dim."""
-    if a_inst is None or b_inst is None:
-        return np.zeros(5, dtype=np.float32)
-    ca = np.asarray(a_inst.get("center", [0, 0]), dtype=np.float32)
-    cb = np.asarray(b_inst.get("center", [0, 0]), dtype=np.float32)
-    delta = cb - ca
-    dist = float(np.linalg.norm(delta))
-    axis_a = np.asarray(a_inst.get("principal_axis", [[0, 0], [1, 0]]), dtype=np.float32)
-    axis_b = np.asarray(b_inst.get("principal_axis", [[0, 0], [1, 0]]), dtype=np.float32)
-    dir_a = axis_a[1] - axis_a[0]; dir_b = axis_b[1] - axis_b[0]
-    na = float(np.linalg.norm(dir_a)) or 1.0; nb = float(np.linalg.norm(dir_b)) or 1.0
-    alignment = float(abs(np.dot(dir_a / na, dir_b / nb)))
-    return np.asarray([
-        delta[0] / 200.0, delta[1] / 200.0, dist / 200.0,
-        alignment, 1.0 if dist < 80 else 0.0,  # proximity
-    ], dtype=np.float32)
 
 
 # ─── Model ──────────────────────────────────────────────────────────────────
 
-class StepMergePlanner(nn.Module):
-    """Sequential merge planner: GRU state + step SVG spatial context."""
+class StepPlanner(nn.Module):
+    """Sequential connection predictor: step_emb + GRU → which clusters connect."""
 
-    def __init__(self, hidden_dim: int = 128, dropout: float = 0.1):
+    def __init__(self, hidden_dim: int = 256, dropout: float = 0.1):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.shape_emb = nn.Embedding(4, 16)
-        self.spatial_proj = nn.Sequential(
-            nn.Linear(9, 32), nn.ReLU(), nn.Linear(32, 16)
-        )
-        # Cluster: attention pool parts → hidden_dim
+        self.spatial_proj = nn.Sequential(nn.Linear(8, 32), nn.ReLU(), nn.Linear(32, 16))
         self.cluster_attn = nn.MultiheadAttention(32, 4, dropout=dropout, batch_first=True)
         self.cluster_proj = nn.Linear(32, hidden_dim)
-        # GRU
         self.gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
-        # Pair scorer: [emb_i, emb_j, GRU_h, spatial_ij]
+        self.step_emb = nn.Embedding(20, 32)
+        # Pair scorer: [emb_i, emb_j, gru_h, step_emb]
         self.pair_scorer = nn.Sequential(
-            nn.Linear(hidden_dim * 3 + 5, hidden_dim),
+            nn.Linear(hidden_dim * 3 + 32, hidden_dim),
             nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.ReLU(), nn.Dropout(dropout),
@@ -154,154 +106,96 @@ class StepMergePlanner(nn.Module):
         device = next(self.parameters()).device
         embs = []
         for pid in sorted(part_feats):
-            f = part_feats[pid]
-            spatial = torch.from_numpy(f[1:]).float().to(device)
-            shape_emb = self.shape_emb(torch.tensor(int(f[0]), device=device))
-            spatial_emb = self.spatial_proj(spatial.unsqueeze(0)).squeeze(0)
-            embs.append(torch.cat([shape_emb, spatial_emb]))
-        return torch.stack(embs)  # [P, 32]
+            f = part_feats[pid]; s = torch.tensor(int(f[0]), device=device)
+            sp = torch.from_numpy(f[1:]).float().to(device)
+            embs.append(torch.cat([self.shape_emb(s), self.spatial_proj(sp.unsqueeze(0)).squeeze(0)]))
+        return torch.stack(embs)
 
-    def _encode_clusters(self, part_embs: torch.Tensor,
-                         clusters: List[Cluster]) -> torch.Tensor:
-        cluster_embs = []
+    def _encode_clusters(self, part_embs: torch.Tensor, clusters: List[Cluster]) -> torch.Tensor:
+        embs = []
         for c in clusters:
             idx = torch.tensor(sorted(c), device=part_embs.device)
-            c_embs = part_embs[idx]  # [|c|, 32]
-            if len(c) == 1:
-                pooled = c_embs.squeeze(0)
-            else:
-                attn_out, _ = self.cluster_attn(c_embs.unsqueeze(0), c_embs.unsqueeze(0), c_embs.unsqueeze(0))
-                pooled = attn_out.squeeze(0).mean(0)
-            cluster_embs.append(self.cluster_proj(pooled))
-        return torch.stack(cluster_embs)  # [M, hidden_dim]
+            ce = part_embs[idx]
+            if len(c) == 1: pooled = ce.squeeze(0)
+            else: attn_out, _ = self.cluster_attn(ce.unsqueeze(0), ce.unsqueeze(0), ce.unsqueeze(0)); pooled = attn_out.squeeze(0).mean(0)
+            embs.append(self.cluster_proj(pooled))
+        return torch.stack(embs)
 
     def forward(self, clusters: List[Cluster], part_feats: dict,
-                gru_hidden: torch.Tensor | None,
-                pair_spatial_map: Dict[Tuple[int, int], np.ndarray] | None = None
-                ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Returns (scores [P], new_hidden [hidden_dim])."""
+                gru_hidden: torch.Tensor | None, step_idx: int = 0):
+        """Returns (pair_scores [P], new_hidden)."""
         device = next(self.parameters()).device
         part_embs = self._encode_parts(part_feats)
         cluster_embs = self._encode_clusters(part_embs, clusters)
-
-        # GRU step
         gru_input = cluster_embs.mean(0, keepdim=True)
-        if gru_hidden is None:
-            gru_hidden = torch.zeros(1, 1, self.hidden_dim, device=device)
-        else:
-            gru_hidden = gru_hidden.unsqueeze(0).unsqueeze(0)
-        _, new_hidden = self.gru(gru_input.unsqueeze(0), gru_hidden)
-        h = new_hidden.squeeze(0).squeeze(0)
-
-        # Score pairs
+        if gru_hidden is None: gru_hidden = torch.zeros(1, 1, self.hidden_dim, device=device)
+        else: gru_hidden = gru_hidden.unsqueeze(0).unsqueeze(0)
+        _, nh = self.gru(gru_input.unsqueeze(0), gru_hidden)
+        h = nh.squeeze(0).squeeze(0)
+        se = self.step_emb(torch.tensor(min(step_idx, 19), device=device))
         M = len(clusters)
-        pair_feats = []
-        spatial_map = pair_spatial_map or {}
+        pf = []
         for i in range(M):
-            for j in range(i + 1, M):
-                sp = torch.from_numpy(spatial_map.get((i, j), np.zeros(5, dtype=np.float32))).float().to(device)
-                pair_feats.append(torch.cat([cluster_embs[i], cluster_embs[j], h, sp]))
-
-        if not pair_feats:
-            return torch.zeros(1, device=device), new_hidden.squeeze(0).squeeze(0)
-
-        scores = self.pair_scorer(torch.stack(pair_feats)).squeeze(-1)
-        return scores, new_hidden.squeeze(0).squeeze(0)
+            for j in range(i+1, M):
+                pf.append(torch.cat([cluster_embs[i], cluster_embs[j], h, se]))
+        if not pf: return torch.zeros(1, device=device), h
+        return self.pair_scorer(torch.stack(pf)).squeeze(-1), h
 
 
-# ─── Training ────────────────────────────────────────────────────────────────
+# ─── Training: manual_step_groups.connections as labels ──────────────────────
 
-def _build_step_spatial_map(record: dict, clusters: List[Cluster],
-                            step_svg_data: dict, step_id: int
-                            ) -> Dict[Tuple[int, int], np.ndarray]:
-    """Build per-pair spatial features from a specific step's SVG instances."""
-    if step_id not in step_svg_data:
-        return {}
-    part_color = _part_to_svg_color(record)
-    instances = step_svg_data[step_id]
-    # Map cluster index → first matching SVG instance
-    cluster_inst: Dict[int, dict | None] = {}
-    for idx, c in enumerate(clusters):
-        found = None
-        for p in c:
-            color = part_color.get(p)
-            if color:
-                for inst in instances:
-                    if str(inst.get("id", "")).lower() == color:
-                        found = inst; break
-            if found: break
-        cluster_inst[idx] = found
-
-    spatial_map: Dict[Tuple[int, int], np.ndarray] = {}
-    M = len(clusters)
-    for i in range(M):
-        for j in range(i + 1, M):
-            spatial_map[(i, j)] = _pair_spatial(cluster_inst.get(i), cluster_inst.get(j))
-    return spatial_map
-
-
-def _find_matching_step(record: dict, parent_parts: frozenset) -> int:
-    """Find which manual step produces this parent cluster.
-
-    The parent is the OUTPUT of a step. Look for the first step where
-    ALL parts of parent appear (individually or as sub-groups).
-    """
-    parent_set = set(parent_parts)
-    for sg in record.get("manual_step_groups") or []:
-        all_parts_in_step: Set[int] = set()
-        for p_str in sg.get("parts") or []:
-            all_parts_in_step.update(_parse_part_set(p_str))
-        if parent_set.issubset(all_parts_in_step):
-            return sg["step_id"]
-    return 0
-
-
-def _get_tree_actions(tree: Node) -> list:
-    """Postorder tree actions."""
-    actions = []
-    def _walk(n):
-        for c in n.children: _walk(c)
-        if n.children:
-            actions.append({"parent": n.parts, "children": [c.parts for c in n.children]})
-    _walk(tree)
-    return actions
-
-
-def _train_one_epoch(model, optimizer, records, step_svg_cache, device, args):
-    """Teacher-forcing through GT merge actions."""
+def _train_one_epoch(model, optimizer, records, device, args):
+    """Train on all manual steps, using connections as pair labels."""
     model.train()
     total_loss, total_steps = 0.0, 0
 
     for rec in records:
-        tree = build_tree_from_list(rec["assembly_tree"])
+        part_feats = _part_features(rec, _load_step_svg_data(rec))
         num_parts = int(rec["num_parts"])
-        cache_key = f"{rec['category']}/{rec['name']}"
-        step_data = step_svg_cache.get(cache_key) or _load_step_svg_data(rec)
-        step_svg_cache[cache_key] = step_data
-        part_feats = _part_features(rec, step_data)
-        current = {frozenset([p]) for p in range(num_parts)}
+        clusters_state: Dict[int, Cluster] = {p: frozenset([p]) for p in range(num_parts)}
+        manual_steps = sorted(rec.get("manual_step_groups") or [], key=lambda s: s["step_id"])
         gru_hidden = None
 
-        obj_loss = 0.0
-        for action in _get_tree_actions(tree):
-            children = [frozenset(c) for c in action["children"]]
-            parent = frozenset(action["parent"])
-            clusters = sorted(current, key=lambda c: (len(c), tuple(sorted(c))))
-            if len(clusters) < 2: break
+        for si, sg in enumerate(manual_steps):
+            # Parse step state: which clusters exist at this step?
+            step_parts: List[Cluster] = []
+            for p_str in sg["parts"]:
+                ps = _parse_part_set(p_str)
+                # Find the current cluster matching this part set
+                matched = None
+                part_set = set(ps)
+                for k, c in clusters_state.items():
+                    if set(c) == part_set:
+                        matched = c; break
+                if matched is None:
+                    # Parts are singletons that never appeared before
+                    matched = frozenset(ps)
+                step_parts.append(matched)
 
-            step_id = _find_matching_step(rec, parent)
-            spatial_map = _build_step_spatial_map(rec, clusters, step_data, step_id) if step_data else {}
+            if len(step_parts) < 2: continue
 
-            scores, new_hidden = model(clusters, part_feats, gru_hidden, spatial_map)
+            # Parse connections as positive pairs
+            conn_set: Set[Tuple[Cluster, Cluster]] = set()
+            for conn in sg["connections"]:
+                a = _parse_part_set(conn[0]); b = _parse_part_set(conn[1])
+                ca = frozenset(a) if frozenset(a) in set(step_parts) else None
+                cb = frozenset(b) if frozenset(b) in set(step_parts) else None
+                if ca is None or cb is None: continue
+                key = (ca, cb) if tuple(sorted(ca)) <= tuple(sorted(cb)) else (cb, ca)
+                conn_set.add(key)
 
-            # GT: which pair indices are positive?
-            children_set = set(children)
-            M = len(clusters)
+            clusters_list = sorted(set(step_parts), key=lambda c: (len(c), tuple(sorted(c))))
+            scores, new_hidden = model(clusters_list, part_feats, gru_hidden, step_idx=si)
+            gru_hidden = new_hidden.detach()
+
+            # Labels
+            M = len(clusters_list)
             labels = torch.zeros(M * (M - 1) // 2, device=device)
             idx = 0
             for i in range(M):
                 for j in range(i + 1, M):
-                    if clusters[i] in children_set and clusters[j] in children_set:
+                    key = (clusters_list[i], clusters_list[j]) if tuple(sorted(clusters_list[i])) <= tuple(sorted(clusters_list[j])) else (clusters_list[j], clusters_list[i])
+                    if key in conn_set:
                         labels[idx] = 1.0
                     idx += 1
 
@@ -309,16 +203,23 @@ def _train_one_epoch(model, optimizer, records, step_svg_cache, device, args):
             pos_weight = (len(labels) - n_pos) / n_pos
             weights = torch.where(labels > 0.5, pos_weight, 1.0)
             loss = nn.functional.binary_cross_entropy_with_logits(scores, labels, weight=weights)
-            obj_loss += loss
+            (loss / max(len(manual_steps), 1)).backward()
+            total_loss += float(loss.item())
             total_steps += 1
 
-            gru_hidden = new_hidden.detach()
-            for c in children: current.discard(c)
-            current.add(parent)
+            # Merge connected clusters (teacher forcing)
+            if conn_set:
+                edges = [(a, b) for a, b in conn_set]
+                comps = connected_components(clusters_list, edges)
+                for comp in comps:
+                    if len(comp) >= 2:
+                        parent = frozenset().union(*comp)
+                        for c in comp:
+                            # Update clusters_state
+                            for k, v in list(clusters_state.items()):
+                                if v == c: del clusters_state[k]
+                        clusters_state[max(parent)] = parent
 
-        if total_steps > 0:
-            (obj_loss / len(_get_tree_actions(tree))).backward()
-            total_loss += float(obj_loss.item())
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
 
@@ -328,85 +229,70 @@ def _train_one_epoch(model, optimizer, records, step_svg_cache, device, args):
 # ─── Inference ──────────────────────────────────────────────────────────────
 
 @torch.no_grad()
-def predict_tree(record, model, device, num_samples=20, temperature=0.6):
-    """Sample trees via per-step CC grouping, select best via SVG reward.
-
-    At each step: model scores all pairs → threshold pairs → CC grouping
-    → merge each component. Multiple pairs can merge per step = n-ary support.
-    """
+def predict_tree(record, model, device, threshold: float):
+    """Predict connections at each step → CC group → merge."""
     num_parts = int(record["num_parts"])
-    step_data = _load_step_svg_data(record)
-    part_feats = _part_features(record, step_data)
-    subassemblies = set()
-    for sg in record.get("manual_step_groups") or []:
-        for p_str in sg.get("parts") or []:
-            ps = _parse_part_set(p_str)
-            if len(ps) >= 2: subassemblies.add(ps)
+    part_feats = _part_features(record, _load_step_svg_data(record))
+    current = {frozenset([p]) for p in range(num_parts)}
+    merges = []
+    gru_hidden = None
 
-    best_tree, best_reward = None, -1.0
-    for _ in range(num_samples):
-        current = {frozenset([p]) for p in range(num_parts)}
-        merges = []
-        gru_hidden = None
-        for _ in range(num_parts):
-            if len(current) <= 1: break
-            clusters = sorted(current, key=lambda c: (len(c), tuple(sorted(c))))
-            scores, new_hidden = model(clusters, part_feats, gru_hidden, {})
+    for step_idx in range(num_parts):
+        if len(current) <= 1: break
+        clusters = sorted(current, key=lambda c: (len(c), tuple(sorted(c))))
+        scores, new_hidden = model(clusters, part_feats, gru_hidden, step_idx=step_idx)
+        probs = torch.sigmoid(scores).cpu().numpy()
+        gru_hidden = new_hidden.detach()
 
-            probs = torch.sigmoid(scores).cpu().numpy()
+        M = len(clusters)
+        edges = []
+        idx = 0
+        for i in range(M):
+            for j in range(i + 1, M):
+                if probs[idx] >= threshold:
+                    edges.append((clusters[i], clusters[j]))
+                idx += 1
 
-            # Sample threshold: slightly perturb to get diverse trees
-            thresh = 0.5 + 0.1 * (np.random.rand() - 0.5)
-
-            # Find edges above threshold
-            M = len(clusters)
-            edges = []
+        if not edges:
+            best_idx = int(np.argmax(probs))
             idx = 0
             for i in range(M):
                 for j in range(i + 1, M):
-                    if probs[idx] >= thresh:
-                        edges.append((clusters[i], clusters[j]))
+                    if idx == best_idx: pi, pj = i, j; break
                     idx += 1
+            edges.append((clusters[pi], clusters[pj]))
 
-            if not edges:
-                # No merges → pick highest-scoring pair as fallback
-                best_idx = int(np.argmax(probs))
-                idx = 0; found = False
-                for i in range(M):
-                    for j in range(i + 1, M):
-                        if idx == best_idx: pi, pj = i, j; found = True; break
-                        idx += 1
-                    if found: break
-                edges.append((clusters[pi], clusters[pj]))
+        comps = connected_components(clusters, edges)
+        for comp in comps:
+            if len(comp) >= 2:
+                parent = frozenset().union(*comp)
+                merges.append([cluster_token(c) for c in sorted(comp, key=lambda x: (len(x), tuple(sorted(x))))])
+                for c in comp: current.discard(c)
+                current.add(parent)
 
-            # CC grouping
-            comps = connected_components(clusters, edges)
-            for comp in comps:
-                if len(comp) >= 2:
-                    parent = frozenset().union(*comp)
-                    merges.append([cluster_token(c) for c in sorted(comp, key=lambda x: (len(x), tuple(sorted(x))))])
-                    for c in comp: current.discard(c)
-                    current.add(parent)
-
-            gru_hidden = new_hidden.detach()
-
-        tree = step_tree_from_child_specs(merges, num_parts)
-        nodes = list(nonleaf_nodes(tree))
-        r_svg = sum(1 for n in nodes if n.parts in subassemblies) / max(len(nodes), 1)
-        r_spatial = spatial_svg_reward(tree, record)
-        total_r = 0.4 * r_svg + 0.6 * r_spatial
-        if total_r > best_reward:
-            best_reward = total_r; best_tree = tree
-
-    return best_tree
+    return step_tree_from_child_specs(merges, num_parts)
 
 
 @torch.no_grad()
-def evaluate(model, records, device):
+def tune_threshold(model, records, device):
+    best_t, best_s = 0.5, -1.0
+    for t in np.linspace(0.15, 0.90, 16):
+        rows = []
+        for rec in records:
+            gt = build_tree_from_list(rec["assembly_tree"])
+            pred = predict_tree(rec, model, device, float(t))
+            rows.append(eval_tree(gt, pred))
+        s = average_metrics(rows)["hard"]["f1"]
+        if s > best_s: best_s = s; best_t = float(t)
+    return best_t
+
+
+@torch.no_grad()
+def evaluate(model, records, device, threshold: float):
     rows = []
     for rec in records:
         gt = build_tree_from_list(rec["assembly_tree"])
-        pred = predict_tree(rec, model, device, num_samples=10, temperature=0.5)
+        pred = predict_tree(rec, model, device, threshold)
         rows.append(eval_tree(gt, pred))
     return average_metrics(rows)
 
@@ -420,15 +306,15 @@ def main():
     records = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
     fit, val, test = split_records(records, args.val_fraction, args.seed, val_seed=args.split_seed)
 
-    model = StepMergePlanner(hidden_dim=args.hidden_dim, dropout=args.dropout).to(device)
+    model = StepPlanner(hidden_dim=args.hidden_dim, dropout=args.dropout).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    step_svg_cache = {}
     best_val, best_state = -1.0, None
 
     for epoch in range(1, args.epochs + 1):
-        train_loss = _train_one_epoch(model, optimizer, fit, step_svg_cache, device, args)
+        train_loss = _train_one_epoch(model, optimizer, fit, device, args)
         if epoch == 1 or epoch % 10 == 0 or epoch == args.epochs:
-            val_m = evaluate(model, val or fit, device)
+            t = tune_threshold(model, val or fit, device)
+            val_m = evaluate(model, val or fit, device, t)
             vh = val_m["hard"]["f1"]
             if vh > best_val:
                 best_val = vh
@@ -437,12 +323,14 @@ def main():
 
     if best_state: model.load_state_dict(best_state)
     model.eval()
-    val_m = evaluate(model, val or fit, device)
-    test_m = evaluate(model, test, device)
-    all_m = evaluate(model, records, device)
+    t = tune_threshold(model, val or fit, device)
+    val_m = evaluate(model, val or fit, device, t)
+    test_m = evaluate(model, test, device, t)
+    all_m = evaluate(model, records, device, t)
 
-    report = {"model": "step_conditioned_planner",
+    report = {"model": "step_planner_v2",
               "splits": {"fit": len(fit), "val": len(val), "test": len(test)},
+              "threshold": t,
               "tree_metrics": {"val": val_m, "test": test_m, "all": all_m},
               "config": vars(args)}
     out = Path(args.output); out.parent.mkdir(parents=True, exist_ok=True)
