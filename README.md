@@ -92,18 +92,6 @@ python scripts/build/build_grounding_dataset.py
 python scripts/build/build_tree_generation_dataset.py
 ```
 
-### 训练
-
-```powershell
-# 监督训练
-assembly_plan\.venv\Scripts\python.exe -m assembly_plan.run --mode train
-
-# GRPO 微调（需要先有监督 checkpoint）
-assembly_plan\.venv\Scripts\python.exe -m assembly_plan.run --mode train_grpo --ckpt <checkpoint路径>
-
-# 评估
-assembly_plan\.venv\Scripts\python.exe -m assembly_plan.run --mode eval --ckpt <checkpoint路径>
-```
 
 ## 文档索引
 
