@@ -1,95 +1,87 @@
-# IKEA-Manual Assembly Tree Generation
+# IKEA-Manual 装配树生成
 
-SVG-enhanced assembly tree generation from IKEA furniture instruction manuals.
-Given N parts (3D geometry + SVG spatial features), predict the hierarchical
-assembly plan — e.g. `[[0, 1, 2], 3]` means "merge {0,1,2} first, then add 3".
+从 IKEA 家具说明书中自动推理装配计划。给定 N 个零件（3D 几何 + SVG 空间特征），
+预测层次化装配树 —— 例如 `[[0, 1, 2], 3]` 表示"先将 {0,1,2} 合并为子装配体，再与 3 组合"。
 
-## Repository Structure
+## 仓库结构
 
 ```
-├── README.md                          ← you are here
-├── EXPERIMENT_REPORT.md               # GNN + GRPO experiment report (assembly_plan)
-├── IKEA-Manual Dataset 详细总结报告.md  # Full technical summary (Chinese)
-├── main_data.json                     # Core annotations (steps, connections, trees)
+├── README.md                            ← 本文件
+├── IKEA-Manual Dataset 详细总结报告.md    # 项目完整技术总结（11 章）
+├── EXPERIMENT_REPORT.md                  # GNN + GRPO 实验报告 (assembly_plan)
+├── main_data.json                        # 核心标注数据（步骤、连接、装配树）
 │
-├── code/                              # Original baseline implementations
-│   ├── manual_generation/             # Manual plan generation (DGCNN + K-Means)
-│   └── part_assembly/                 # NeurIPS 2020: Generative 3D Part Assembly
+├── code/                                 # 原始基线实现
+│   ├── manual_generation/                # 说明书生成实验（DGCNN + K-Means）
+│   └── part_assembly/                    # NeurIPS 2020: Generative 3D Part Assembly
 │
-├── scripts/                           # SVG assembly experiment tooling
-│   ├── build/                         # Data construction & feature extraction (7 scripts)
-│   ├── train/                         # Model training (12 scripts)
-│   ├── eval/                          # Evaluation & inference (5 scripts)
-│   └── export/                        # Export & analysis (4 scripts)
+├── scripts/                              # SVG 装配实验工具
+│   ├── build/                            # 数据构建与特征提取（7 个脚本）
+│   ├── train/                            # 模型训练（12 个脚本）
+│   ├── eval/                             # 评估与推理（5 个脚本）
+│   └── export/                           # 导出与分析（4 个脚本）
 │
-├── assembly_plan/                     # GNN + GraphSAGE tree planner (current)
-│   ├── model.py                       # GNNMergeModel (GraphSAGE + MLP scorer)
-│   ├── decoder.py                     # Group-aware k-ary tree decoder
-│   ├── train.py / run.py              # Training & inference entry points
-│   └── EXPERIMENT_REPORT.md           # Detailed results
+├── assembly_plan/                        # GNN + GraphSAGE 装配树规划器（当前主力）
+│   ├── model.py                          # GNNMergeModel（GraphSAGE + MLP 打分器）
+│   ├── decoder.py                        # Group-Aware k-ary 树解码器
+│   ├── train.py / run.py                 # 训练 / 推理入口
+│   └── EXPERIMENT_REPORT.md              # 详细实验结果
 │
-├── vlm_distill/                       # VLM distillation pipeline (proposed)
-│   ├── DESIGN.md / DESIGN_CN.md       # Design documents
-│   └── test_vlm_assembly.py           # GPT-4o calibration script
+├── experiments/svg_assembly/             # 实验中心
+│   ├── METHODS_ANALYSIS.md               # 6 种方法 + 根因分析（英文）
+│   ├── METHODS_ANALYSIS_CN.md            # 同上（中文）
+│   ├── EXPERIMENT_REPORT_CN.md           # 组会汇报稿
+│   ├── IMPROVEMENT_REPORT.md             # Grounding CNN 改进报告
+│   ├── datasets/                         # 构建的数据集
+│   │   └── DATASET_FIELDS.md             # 每个特征维度的详细说明
+│   └── reports/                          # 实验报告汇总
 │
-├── experiments/svg_assembly/          # Experiment hub
-│   ├── METHODS_ANALYSIS.md            # 6 methods, root-cause analysis
-│   ├── EXPERIMENT_REPORT_CN.md        # Presentation-ready summary (Chinese)
-│   ├── IMPROVEMENT_REPORT.md          # Grounding CNN improvements
-│   ├── datasets/                      # Built datasets + field documentation
-│   │   └── DATASET_FIELDS.md          # Per-feature-dimension explanation
-│   └── reports/                       # Experiment result summaries
-│
-├── data/                              # Raw XML data samples
-├── assembly_trees/                    # GT assembly tree exports
-└── line_seg/                          # SVG line segmentation (per-step)
+├── data/                                 # 原始 XML 数据样本
+├── assembly_trees/                       # GT 装配树导出
+└── line_seg/                             # SVG 线条分割（每步骤一个 SVG）
 ```
 
-## Dataset
+## 数据集
 
-- **102 IKEA furniture objects** (73 train / 29 test)
-- 754 primitive parts, 404 tree actions, 393 manual steps
-- Per-part features: **34-dim** (14 geometry + 17 SVG spatial + 4 shape type)
-- See `experiments/svg_assembly/datasets/DATASET_FIELDS.md` for full field documentation.
+- **102 个 IKEA 家具对象**（73 train / 29 test）
+- 754 个 primitive parts，404 个 tree actions，393 个 manual steps
+- 每个零件的特征：**35 维**（geometry 14 + SVG spatial 17 + shape type 4）
+- 详见 `experiments/svg_assembly/datasets/DATASET_FIELDS.md`
 
-## Key Results
+## 关键结果
 
-| Model | Hard F1 | Notes |
+| 模型 | Hard F1 | 备注 |
 |------|:---:|------|
-| BCE Context MLP + composite | 0.332 | Best supervised, but composite tokens leak manual answers |
-| BCE Context MLP (pure features) | 0.108 | No manual info |
-| GNN + GRPO + Group decoder | **0.204** | Current best, produces real nested trees |
-| GRPO SVG-only (0% GT labels) | ~0.346 | 3-seed mean, high variance |
+| BCE Context MLP + composite | 0.332 | 最佳监督方法，但 composite token 泄露 manual 答案 |
+| BCE Context MLP（纯特征）| 0.108 | 无 manual 信息 |
+| GNN + GRPO + Group decoder | **0.204** | 当前最佳，产生真正的嵌套树 |
+| GRPO SVG-only（0% GT 标签）| ~0.346 | 3 seed 均值，方差大 |
 
-66% of BCE predictions are flat trees (single-step merge of all parts).
-See `experiments/svg_assembly/EXPERIMENT_REPORT_CN.md` for the full presentation.
+BCE 方法的 66% 预测为平树（所有零件一步合并）。完整汇报见 `experiments/svg_assembly/EXPERIMENT_REPORT_CN.md`。
 
-## Quick Start
+## 快速开始
 
 ```powershell
-# Environment
+# 环境安装
 .venv\Scripts\python.exe -m pip install -r requirements-ml.txt
 
-# Build SVG features
+# 构建 SVG 特征
 python scripts/build/build_svg_features.py
 
-# Build tree generation dataset
+# 构建树生成数据集
 python scripts/build/build_tree_generation_dataset.py
 
-# Train GNN planner
+# 训练 GNN 规划器
 python assembly_plan/train.py --feature-mode svg_geometry
-
-# Run VLM calibration (requires OPENAI_API_KEY)
-python vlm_distill/test_vlm_assembly.py --num_samples 5
 ```
 
-## Documentation Index
+## 文档索引
 
-| Document | Language | Content |
-|------|------|------|
-| `IKEA-Manual Dataset 详细总结报告.md` | CN | Complete project survey (11 chapters) |
-| `experiments/svg_assembly/METHODS_ANALYSIS.md` | EN | 6 methods, problems, root causes |
-| `experiments/svg_assembly/EXPERIMENT_REPORT_CN.md` | CN | Presentation-ready summary |
-| `EXPERIMENT_REPORT.md` | EN | GNN + GRPO experiment report |
-| `experiments/svg_assembly/datasets/DATASET_FIELDS.md` | CN | Feature dimension documentation |
-| `vlm_distill/DESIGN_CN.md` | CN | VLM distillation design |
+| 文档 | 内容 |
+|------|------|
+| `IKEA-Manual Dataset 详细总结报告.md` | 项目完整技术总结（11 章） |
+| `experiments/svg_assembly/EXPERIMENT_REPORT_CN.md` | 组会汇报稿 |
+| `experiments/svg_assembly/METHODS_ANALYSIS_CN.md` | 6 种方法详细分析与根因 |
+| `experiments/svg_assembly/datasets/DATASET_FIELDS.md` | 训练数据每个字段的详细说明 |
+| `EXPERIMENT_REPORT.md` | GNN + GRPO 实验报告（英文） |
+| `assembly_plan/EXPERIMENT_REPORT.md` | GNN 模块详细实验结果（英文） |
