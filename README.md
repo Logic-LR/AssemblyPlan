@@ -1,76 +1,95 @@
-# IKEA-Manual Dataset
+# IKEA-Manual Assembly Tree Generation
 
-## Dataset Structure
-```
-├── README.md
-├── main_data.json # Core data json
-├── pdfs # manual pdfs
-├── code # Code for experiments
-│   ├── manual_generation
-│   ├── part_assembly
-│   ├── resources
-│   └── utils
-├── line_seg # Line Segmentation
-├── seg # Pixel Segmentation
-├── parts # Assembly Part Decomposition
-```
+SVG-enhanced assembly tree generation from IKEA furniture instruction manuals.
+Given N parts (3D geometry + SVG spatial features), predict the hierarchical
+assembly plan — e.g. `[[0, 1, 2], 3]` means "merge {0,1,2} first, then add 3".
 
-## main_data.json File Structure
-`main_data.json` contains annotations for each objects in the following format:
-```
-{
-    // Object metadata.
-    'category': 'Bench',
-    'name': 'applaro',
-    
-     // Annotations for each step.
-    'steps': [...],
-    
-     // Connection relation between primitive assembly parts.
-    'connection_relation': [...], 
-    
-     // Geometric equivalence relation between primitive assembly parts.
-    'geometric_equivalence_relation': [...],
-    
-     // Tree-structured assembly plan in list format.
-    'assembly_tree': [...],
-    
-     // Number of primitive assembly parts.
-    'parts_ct': 4, 
-    }
-```
-
-The `steps` field contains a list of step annotation in the following format:
+## Repository Structure
 
 ```
-{
-    // List of involved assembly parts in this step.
-    'parts': ['0,1,2', '3']
-    
-    // List of pairwise connection relationships.
-    'connections': [['0,1,2', '3']]
-    
-    // The page where this step is in.
-    'page_id': 4,
-    
-    // The step id.
-    'step_id': 1,
-    
-    // A list of masks for each assembly parts.
-    // Use pycocotools.masks.decode to decode each mask
-    // into an numpy array.
-    'masks': masks,
-    
-    // A list of intrinsic matrices for each assembly part.
-    'intrinsics': [...],
-    
-    // A list of extrinsic matrices for each assembly part.
-    'extrinsics': [...],
-    
-    // The split for the segmentation task.
-    'part_segmentation_split': 'test',
-    
-    // The index of the step in the whole dataset.
-    'step_id_global': 10,
-}
+├── README.md                          ← you are here
+├── EXPERIMENT_REPORT.md               # GNN + GRPO experiment report (assembly_plan)
+├── IKEA-Manual Dataset 详细总结报告.md  # Full technical summary (Chinese)
+├── main_data.json                     # Core annotations (steps, connections, trees)
+│
+├── code/                              # Original baseline implementations
+│   ├── manual_generation/             # Manual plan generation (DGCNN + K-Means)
+│   └── part_assembly/                 # NeurIPS 2020: Generative 3D Part Assembly
+│
+├── scripts/                           # SVG assembly experiment tooling
+│   ├── build/                         # Data construction & feature extraction (7 scripts)
+│   ├── train/                         # Model training (12 scripts)
+│   ├── eval/                          # Evaluation & inference (5 scripts)
+│   └── export/                        # Export & analysis (4 scripts)
+│
+├── assembly_plan/                     # GNN + GraphSAGE tree planner (current)
+│   ├── model.py                       # GNNMergeModel (GraphSAGE + MLP scorer)
+│   ├── decoder.py                     # Group-aware k-ary tree decoder
+│   ├── train.py / run.py              # Training & inference entry points
+│   └── EXPERIMENT_REPORT.md           # Detailed results
+│
+├── vlm_distill/                       # VLM distillation pipeline (proposed)
+│   ├── DESIGN.md / DESIGN_CN.md       # Design documents
+│   └── test_vlm_assembly.py           # GPT-4o calibration script
+│
+├── experiments/svg_assembly/          # Experiment hub
+│   ├── METHODS_ANALYSIS.md            # 6 methods, root-cause analysis
+│   ├── EXPERIMENT_REPORT_CN.md        # Presentation-ready summary (Chinese)
+│   ├── IMPROVEMENT_REPORT.md          # Grounding CNN improvements
+│   ├── datasets/                      # Built datasets + field documentation
+│   │   └── DATASET_FIELDS.md          # Per-feature-dimension explanation
+│   └── reports/                       # Experiment result summaries
+│
+├── data/                              # Raw XML data samples
+├── assembly_trees/                    # GT assembly tree exports
+└── line_seg/                          # SVG line segmentation (per-step)
 ```
+
+## Dataset
+
+- **102 IKEA furniture objects** (73 train / 29 test)
+- 754 primitive parts, 404 tree actions, 393 manual steps
+- Per-part features: **34-dim** (14 geometry + 17 SVG spatial + 4 shape type)
+- See `experiments/svg_assembly/datasets/DATASET_FIELDS.md` for full field documentation.
+
+## Key Results
+
+| Model | Hard F1 | Notes |
+|------|:---:|------|
+| BCE Context MLP + composite | 0.332 | Best supervised, but composite tokens leak manual answers |
+| BCE Context MLP (pure features) | 0.108 | No manual info |
+| GNN + GRPO + Group decoder | **0.204** | Current best, produces real nested trees |
+| GRPO SVG-only (0% GT labels) | ~0.346 | 3-seed mean, high variance |
+
+66% of BCE predictions are flat trees (single-step merge of all parts).
+See `experiments/svg_assembly/EXPERIMENT_REPORT_CN.md` for the full presentation.
+
+## Quick Start
+
+```powershell
+# Environment
+.venv\Scripts\python.exe -m pip install -r requirements-ml.txt
+
+# Build SVG features
+python scripts/build/build_svg_features.py
+
+# Build tree generation dataset
+python scripts/build/build_tree_generation_dataset.py
+
+# Train GNN planner
+python assembly_plan/train.py --feature-mode svg_geometry
+
+# Run VLM calibration (requires OPENAI_API_KEY)
+python vlm_distill/test_vlm_assembly.py --num_samples 5
+```
+
+## Documentation Index
+
+| Document | Language | Content |
+|------|------|------|
+| `IKEA-Manual Dataset 详细总结报告.md` | CN | Complete project survey (11 chapters) |
+| `experiments/svg_assembly/METHODS_ANALYSIS.md` | EN | 6 methods, problems, root causes |
+| `experiments/svg_assembly/EXPERIMENT_REPORT_CN.md` | CN | Presentation-ready summary |
+| `EXPERIMENT_REPORT.md` | EN | GNN + GRPO experiment report |
+| `experiments/svg_assembly/datasets/DATASET_FIELDS.md` | CN | Feature dimension documentation |
+| `vlm_distill/DESIGN_CN.md` | CN | VLM distillation design |

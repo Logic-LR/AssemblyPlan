@@ -48,8 +48,10 @@ experiments/svg_assembly/grpo_predictions*/
 experiments/svg_assembly/grpo_scratch_predictions*/
 experiments/svg_assembly/label_ratio_*_predictions/
 experiments/svg_assembly/simplified_svg/
-experiments/svg_assembly/reports/
-experiments/svg_assembly/datasets/
+experiments/svg_assembly/reports/*
+!experiments/svg_assembly/reports/*.md
+experiments/svg_assembly/datasets/*
+!experiments/svg_assembly/datasets/*.md
 experiments/svg_assembly/*.npz
 experiments/svg_assembly/experiment_summary.json
 experiments/svg_assembly/experiment_summary.md
@@ -62,3 +64,13 @@ experiments/svg_assembly/experiment_summary.md
 *.log
 tmp/
 temp/
+
+# VLM distillation (development, not yet ready)
+vlm_distill/
+
+# assembly_plan development artifacts
+assembly_plan/.venv/
+assembly_plan/__pycache__/
+
+# Script caches
+scripts/*/__pycache__/
