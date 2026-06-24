@@ -64,6 +64,7 @@ experiments/svg_assembly/experiment_summary.md
 *.log
 tmp/
 temp/
+apikey.txt
 
 # VLM distillation (development, not yet ready)
 vlm_distill/
