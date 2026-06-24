@@ -1,0 +1,25 @@
+{
+  "num_objects": 102,
+  "splits": {
+    "train": 73,
+    "test": 29
+  },
+  "num_missing_parts": 0,
+  "missing_parts": [],
+  "total_parts": 754,
+  "total_tree_actions": 404,
+  "avg_parts_per_object": 7.392156862745098,
+  "avg_tree_actions_per_object": 3.9607843137254903,
+  "parts_with_svg_prototype": 754,
+  "parts_with_svg_prototype_rate": 1.0,
+  "composite_svg_prototypes": 302,
+  "objects_with_composite_svg_prototype": 91,
+  "tree_action_parents_with_composite_svg_prototype": 366,
+  "tree_action_parent_composite_svg_coverage": 0.905940594059406,
+  "notes": [
+    "The split is object-level: any object with at least one existing step-level test sample is assigned to test.",
+    "Primitive SVG prototypes are aggregated from primitive, non-composite manual instances.",
+    "Composite SVG prototypes are aggregated from manual instances whose positive part id is a multi-primitive subassembly.",
+    "Stroke color is retained only as a within-step source key in examples; it is not a semantic identity."
+  ]
+}

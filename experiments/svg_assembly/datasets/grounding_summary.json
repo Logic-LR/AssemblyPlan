@@ -1,0 +1,381 @@
+{
+  "num_samples": 1056,
+  "num_missing_parts": 0,
+  "missing_parts": [],
+  "primitive_samples": 754,
+  "composite_samples": 302,
+  "splits": {
+    "train": 937,
+    "test": 119
+  },
+  "example": {
+    "category": "Bench",
+    "name": "applaro",
+    "step_id": 0,
+    "split": "train",
+    "source_feature": "svg_features/Bench/applaro/step_0.json",
+    "source_svg": "line_seg/Bench/applaro/step_0.svg",
+    "svg_instance_id": "#00ff4a",
+    "svg_shape_type": "plate_like",
+    "svg_simplified": {
+      "id": "#00ff4a",
+      "stroke": "#00ff4a",
+      "shape_type": "plate_like",
+      "num_source_paths": 57,
+      "num_sampled_points": 256,
+      "bbox": [
+        195.814,
+        155.088,
+        329.733,
+        319.257
+      ],
+      "center": [
+        262.7735,
+        237.1725
+      ],
+      "convex_hull": [
+        [
+          201.067,
+          280.6877
+        ],
+        [
+          202.8,
+          186.9738
+        ],
+        [
+          202.999,
+          186.541
+        ],
+        [
+          207.0127,
+          181.4063
+        ],
+        [
+          207.3472,
+          180.984
+        ],
+        [
+          208.1695,
+          180.644
+        ],
+        [
+          307.1595,
+          156.915
+        ],
+        [
+          320.5263,
+          158.61
+        ],
+        [
+          321.4131,
+          158.8517
+        ],
+        [
+          321.863,
+          159.22
+        ],
+        [
+          325.9529,
+          220.2894
+        ],
+        [
+          329.4183,
+          276.54
+        ],
+        [
+          329.695,
+          286.3595
+        ],
+        [
+          329.307,
+          287.091
+        ],
+        [
+          306.2341,
+          301.8775
+        ],
+        [
+          305.9042,
+          302.0435
+        ],
+        [
+          213.9229,
+          318.7872
+        ],
+        [
+          202.965,
+          312.98
+        ]
+      ],
+      "simplified_polygon": [
+        [
+          201.067,
+          280.6877
+        ],
+        [
+          207.3472,
+          180.984
+        ],
+        [
+          321.863,
+          159.22
+        ],
+        [
+          329.307,
+          287.091
+        ],
+        [
+          213.9229,
+          318.7872
+        ]
+      ],
+      "oriented_bbox": [
+        [
+          358.5795,
+          167.8877
+        ],
+        [
+          315.7367,
+          343.6103
+        ],
+        [
+          173.0899,
+          308.8318
+        ],
+        [
+          215.9327,
+          133.1091
+        ]
+      ],
+      "principal_axis": [
+        [
+          287.4419,
+          150.5437
+        ],
+        [
+          244.5991,
+          326.2663
+        ]
+      ],
+      "axis_length": 180.8699,
+      "axis_width": 146.8253,
+      "elongation": 1.5229,
+      "connection_candidates": {
+        "hull_vertices": [
+          [
+            201.067,
+            280.6877
+          ],
+          [
+            202.8,
+            186.9738
+          ],
+          [
+            202.999,
+            186.541
+          ],
+          [
+            207.0127,
+            181.4063
+          ],
+          [
+            207.3472,
+            180.984
+          ],
+          [
+            208.1695,
+            180.644
+          ],
+          [
+            307.1595,
+            156.915
+          ],
+          [
+            320.5263,
+            158.61
+          ],
+          [
+            321.4131,
+            158.8517
+          ],
+          [
+            321.863,
+            159.22
+          ],
+          [
+            325.9529,
+            220.2894
+          ],
+          [
+            329.4183,
+            276.54
+          ],
+          [
+            329.695,
+            286.3595
+          ],
+          [
+            329.307,
+            287.091
+          ],
+          [
+            306.2341,
+            301.8775
+          ],
+          [
+            305.9042,
+            302.0435
+          ],
+          [
+            213.9229,
+            318.7872
+          ],
+          [
+            202.965,
+            312.98
+          ]
+        ],
+        "simplified_polygon_vertices": [
+          [
+            201.067,
+            280.6877
+          ],
+          [
+            207.3472,
+            180.984
+          ],
+          [
+            321.863,
+            159.22
+          ],
+          [
+            329.307,
+            287.091
+          ],
+          [
+            213.9229,
+            318.7872
+          ]
+        ],
+        "axis_endpoints": [
+          [
+            287.4419,
+            150.5437
+          ],
+          [
+            244.5991,
+            326.2663
+          ]
+        ],
+        "bbox_corners": [
+          [
+            358.5795,
+            167.8877
+          ],
+          [
+            315.7367,
+            343.6103
+          ],
+          [
+            173.0899,
+            308.8318
+          ],
+          [
+            215.9327,
+            133.1091
+          ]
+        ]
+      }
+    },
+    "positive_part_id": "2",
+    "is_composite": false,
+    "positive_part": {
+      "category": "Bench",
+      "name": "applaro",
+      "part_id": "2",
+      "obj_path": "parts/Bench/applaro/02.obj",
+      "image_paths": [
+        "part_images/Bench/applaro/2/view_00.png",
+        "part_images/Bench/applaro/2/view_01.png",
+        "part_images/Bench/applaro/2/view_02.png",
+        "part_images/Bench/applaro/2/view_03.png"
+      ],
+      "num_vertices": 1192,
+      "num_faces": 1084,
+      "bbox_min": [
+        -0.88329,
+        -0.344793,
+        -0.317674
+      ],
+      "bbox_max": [
+        -0.790312,
+        0.3138,
+        0.317674
+      ],
+      "extent": [
+        0.092978,
+        0.658593,
+        0.635348
+      ],
+      "center": [
+        -0.836801,
+        -0.015496,
+        0.0
+      ]
+    },
+    "positive_primitive_part_ids": [
+      "2"
+    ],
+    "positive_primitive_parts": [
+      {
+        "category": "Bench",
+        "name": "applaro",
+        "part_id": "2",
+        "obj_path": "parts/Bench/applaro/02.obj",
+        "image_paths": [
+          "part_images/Bench/applaro/2/view_00.png",
+          "part_images/Bench/applaro/2/view_01.png",
+          "part_images/Bench/applaro/2/view_02.png",
+          "part_images/Bench/applaro/2/view_03.png"
+        ],
+        "num_vertices": 1192,
+        "num_faces": 1084,
+        "bbox_min": [
+          -0.88329,
+          -0.344793,
+          -0.317674
+        ],
+        "bbox_max": [
+          -0.790312,
+          0.3138,
+          0.317674
+        ],
+        "extent": [
+          0.092978,
+          0.658593,
+          0.635348
+        ],
+        "center": [
+          -0.836801,
+          -0.015496,
+          0.0
+        ]
+      }
+    ],
+    "negative_part_ids_in_step": [
+      "0",
+      "1"
+    ],
+    "gt_connections": [
+      [
+        "0",
+        "2"
+      ],
+      [
+        "1",
+        "2"
+      ]
+    ],
+    "object_assembly_tree": null
+  }
+}
