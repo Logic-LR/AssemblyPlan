@@ -1,6 +1,7 @@
 # Local environments and agent state
 .venv/
 .claude/
+CLAUDE.md
 
 # Python caches and test artifacts
 __pycache__/
@@ -50,8 +51,6 @@ experiments/svg_assembly/label_ratio_*_predictions/
 experiments/svg_assembly/simplified_svg/
 experiments/svg_assembly/reports/*
 !experiments/svg_assembly/reports/*.md
-experiments/svg_assembly/datasets/*
-!experiments/svg_assembly/datasets/*.md
 experiments/svg_assembly/*.npz
 experiments/svg_assembly/experiment_summary.json
 experiments/svg_assembly/experiment_summary.md
